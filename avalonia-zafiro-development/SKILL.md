@@ -174,8 +174,18 @@ Top behaviors (quick reference):
 ## Procedure Before Writing Code
 
 1.  **Search First**: Search the codebase for similar implementations or existing Zafiro helpers.
-2.  **Reusable Extensions**: If a helper is missing, propose a new reusable extension method instead of inlining complex logic.
-3.  **Reactive Pipelines**: Ensure DynamicData operators are used instead of plain Rx where applicable.
+2.  **Style Preflight (Mandatory for XAML styling)**: Before adding any local visual attribute (`Background`, `Foreground`, `FontSize`, `Padding`, etc.), inspect style/resource resolution with:
+    ```bash
+    /home/jmn/skills/avalonia-zafiro-development/scripts/avalonia_style_probe.sh \
+      --project-root <repo-root> \
+      --control <ControlType> \
+      --classes <Class1,Class2> \
+      --show-tree
+    ```
+    Never add local attributes first; only add them if the probe indicates the required property is not already satisfied by styles/themes.
+3.  **Reusable Extensions**: If a helper is missing, propose a new reusable extension method instead of inlining complex logic.
+4.  **Reactive Pipelines**: Ensure DynamicData operators are used instead of plain Rx where applicable.
+5.  **Aggregates from Collections**: For totals/counts derived from collection changes, prefer DynamicData aggregation (e.g., `Sum`, `Count`) on the change set. Avoid `AutoRefresh` unless item properties actually change.
 
 ## Style Registration
 
@@ -497,4 +507,5 @@ Common locations for style includes:
 - [ ] Create the `.axaml` style file
 - [ ] Add `<StyleInclude Source="..."/>` to the registration file
 - [ ] Verify the relative path is correct from the registration file
+- [ ] Run `scripts/avalonia_style_probe.sh` for target controls before adding local visual attributes
 - [ ] Build and test to ensure styles are applied
