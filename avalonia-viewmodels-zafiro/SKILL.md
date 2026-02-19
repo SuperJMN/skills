@@ -14,6 +14,7 @@ This skill provides a set of best practices and patterns for creating ViewModels
 3.  **Wizard Pattern**: Implement complex flows using `SlimWizard` and `WizardBuilder` for a declarative and maintainable approach.
 4.  **Automatic Section Discovery**: Use the `[Section]` attribute to register and discover UI sections automatically.
 5.  **Clean Composition**: map ViewModels to Views using `DataTypeViewLocator` and manage dependencies in the `CompositionRoot`.
+6.  **Collection Aggregates**: When a value is derived from a collection (totals/counts), use DynamicData aggregation (`Sum`, `Count`) on the change set and expose it as `IObservable<T>`; bind in XAML with `^`. Avoid `AutoRefresh` unless item properties change.
 
 ## Guides
 
