@@ -91,6 +91,11 @@ python3 /home/jmn/skills/avalonia-layout-zafiro/scripts/avalonia_style_probe.py 
   --show-tree
 ```
 
+Resolution mode:
+- By default, the probe auto-detects root style files (`App.axaml`/`App.xaml`, fallback `Styles.axaml`/`Styles.xaml`) and traverses transitive includes from there.
+- Use `--root <file>` to force one or more root files explicitly.
+- Use `--scan-all` only for exploratory scans (less faithful to runtime).
+
 Rules:
 - **Always run the probe first** when styling Avalonia XAML.
 - **Do not add local attributes** unless the probe output shows the property is not already set as needed.

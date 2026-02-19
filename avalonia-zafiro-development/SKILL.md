@@ -182,6 +182,7 @@ Top behaviors (quick reference):
       --classes <Class1,Class2> \
       --show-tree
     ```
+    The probe auto-detects style roots (`App.axaml`/`App.xaml`, fallback `Styles.axaml`/`Styles.xaml`) and resolves transitive includes. Use `--root <file>` to force roots when needed.
     Never add local attributes first; only add them if the probe indicates the required property is not already satisfied by styles/themes.
 3.  **Reusable Extensions**: If a helper is missing, propose a new reusable extension method instead of inlining complex logic.
 4.  **Reactive Pipelines**: Ensure DynamicData operators are used instead of plain Rx where applicable.

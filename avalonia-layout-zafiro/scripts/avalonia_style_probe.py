@@ -20,6 +20,9 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 
 RESOURCE_EXPR_RE = re.compile(r"\{(?:DynamicResource|StaticResource)\s+([^\s\}]+)\s*\}")
+AVARES_RE = re.compile(r"^avares://[^/]+/(.+)$", re.IGNORECASE)
+INCLUDE_TAGS = {"ResourceInclude", "MergeResourceInclude", "StyleInclude"}
+MARKUP_EXTS = (".axaml", ".xaml")
 
 
 def strip_ns(tag: str) -> str:
@@ -124,23 +127,160 @@ class ProbeModel:
     control_themes: Dict[str, ControlTheme] = field(default_factory=dict)
     includes: List[Dict[str, str]] = field(default_factory=list)
     parse_errors: List[str] = field(default_factory=list)
+    root_files: List[str] = field(default_factory=list)
+    scan_mode: str = "rooted"
 
 
-def build_model(project_root: Path) -> ProbeModel:
-    model = ProbeModel()
-    axaml_files: List[Path] = []
+def normalize_rel(path: Path, project_root: Path) -> str:
+    return str(path.resolve().relative_to(project_root.resolve())).replace("\\", "/")
+
+
+def collect_markup_files(project_root: Path, model: ProbeModel) -> Dict[str, Path]:
+    files: Dict[str, Path] = {}
 
     def on_walk_error(exc: OSError) -> None:
         model.parse_errors.append(f"walk: {exc.filename}: {exc.strerror}")
 
     for dirpath, _, filenames in os.walk(project_root, onerror=on_walk_error):
         for filename in filenames:
-            if filename.endswith(".axaml"):
-                axaml_files.append(Path(dirpath) / filename)
-    axaml_files.sort()
-    order = 0
-    for path in axaml_files:
-        rel = str(path.relative_to(project_root))
+            if not filename.lower().endswith(MARKUP_EXTS):
+                continue
+            full = Path(dirpath) / filename
+            try:
+                rel = normalize_rel(full, project_root)
+            except ValueError:
+                continue
+            files[rel] = full
+    return files
+
+
+def detect_root_files(file_map: Dict[str, Path]) -> List[str]:
+    app_names = {"app.axaml", "app.xaml"}
+    style_names = {"styles.axaml", "styles.xaml"}
+
+    app = [rel for rel in file_map if Path(rel).name.lower() in app_names]
+    if app:
+        min_depth = min(rel.count("/") for rel in app)
+        return sorted(rel for rel in app if rel.count("/") == min_depth)
+
+    styles = [rel for rel in file_map if Path(rel).name.lower() in style_names]
+    if styles:
+        min_depth = min(rel.count("/") for rel in styles)
+        return sorted(rel for rel in styles if rel.count("/") == min_depth)
+
+    return []
+
+
+def resolve_include_source(
+    source: str,
+    from_rel: str,
+    project_root: Path,
+    file_map: Dict[str, Path],
+) -> Optional[str]:
+    text = source.strip().strip('"').strip("'")
+    if not text:
+        return None
+
+    if text.startswith("resm:"):
+        return None
+
+    candidates: List[str] = []
+
+    m = AVARES_RE.match(text)
+    if m:
+        avares_path = m.group(1).lstrip("/")
+        candidates.append(avares_path)
+
+    if text.startswith("/"):
+        candidates.append(text.lstrip("/"))
+    else:
+        from_dir = Path(from_rel).parent
+        candidates.append(str((from_dir / text).as_posix()))
+        candidates.append(text)
+
+    normalized: List[str] = []
+    for cand in candidates:
+        try:
+            rel = normalize_rel((project_root / cand), project_root)
+        except ValueError:
+            continue
+        normalized.append(rel)
+        normalized.append(str(Path(rel).as_posix()))
+
+    for cand in normalized:
+        if cand in file_map:
+            return cand
+
+    # Fallback: unique suffix match for avares/includes that omit leading folders.
+    suffix_matches: List[str] = []
+    for cand in normalized:
+        needle = "/" + cand
+        suffix_matches.extend([rel for rel in file_map if rel == cand or rel.endswith(needle)])
+    suffix_matches = sorted(set(suffix_matches))
+    if len(suffix_matches) == 1:
+        return suffix_matches[0]
+
+    return None
+
+
+def build_model(project_root: Path, roots: Optional[Sequence[str]] = None, scan_all: bool = False) -> ProbeModel:
+    model = ProbeModel()
+    file_map = collect_markup_files(project_root, model)
+    if not file_map:
+        return model
+
+    root_files: List[str] = []
+    if roots:
+        for root in roots:
+            if not root:
+                continue
+            candidate = root.replace("\\", "/").lstrip("./")
+            if candidate in file_map:
+                root_files.append(candidate)
+                continue
+            if candidate.lower().startswith(str(project_root.resolve()).lower()):
+                try:
+                    rel = normalize_rel(Path(candidate), project_root)
+                    if rel in file_map:
+                        root_files.append(rel)
+                        continue
+                except (ValueError, OSError):
+                    pass
+            suffix = [rel for rel in file_map if rel.endswith("/" + candidate) or rel == candidate]
+            if len(suffix) == 1:
+                root_files.append(suffix[0])
+            else:
+                model.parse_errors.append(f"root-not-found: {root}")
+    elif not scan_all:
+        root_files = detect_root_files(file_map)
+
+    if scan_all:
+        model.scan_mode = "all-files"
+        root_files = sorted(file_map.keys())
+    elif not root_files:
+        model.scan_mode = "all-files-fallback"
+        model.parse_errors.append(
+            "No root style file detected (App.axaml/App.xaml/Styles.axaml/Styles.xaml). Falling back to all files."
+        )
+        root_files = sorted(file_map.keys())
+    else:
+        model.scan_mode = "rooted"
+
+    model.root_files = sorted(set(root_files))
+
+    queue: List[str] = list(model.root_files)
+    visited: Set[str] = set()
+    parse_order: List[str] = []
+    while queue:
+        rel = queue.pop(0)
+        if rel in visited:
+            continue
+        visited.add(rel)
+        parse_order.append(rel)
+
+        path = file_map.get(rel)
+        if path is None:
+            continue
         try:
             root = ET.parse(path).getroot()
         except ET.ParseError as exc:
@@ -149,11 +289,36 @@ def build_model(project_root: Path) -> ProbeModel:
 
         for elem in root.iter():
             tag = strip_ns(elem.tag)
+            if tag not in INCLUDE_TAGS:
+                continue
+            source = get_attr(elem, "Source")
+            if not source:
+                continue
+            resolved = resolve_include_source(source, rel, project_root, file_map)
+            model.includes.append(
+                {
+                    "from": rel,
+                    "kind": tag,
+                    "source": source,
+                    "resolved": resolved or "",
+                }
+            )
+            if resolved and resolved not in visited and resolved not in queue:
+                queue.append(resolved)
 
-            if tag in {"ResourceInclude", "MergeResourceInclude", "StyleInclude"}:
-                source = get_attr(elem, "Source")
-                if source:
-                    model.includes.append({"from": rel, "kind": tag, "source": source})
+    order = 0
+    for rel in parse_order:
+        path = file_map.get(rel)
+        if path is None:
+            continue
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError as exc:
+            model.parse_errors.append(f"{rel}: {exc}")
+            continue
+
+        for elem in root.iter():
+            tag = strip_ns(elem.tag)
 
             selector = get_attr(elem, "Selector")
             if tag == "Style" and selector:
@@ -322,12 +487,24 @@ def render_text(result: Dict[str, object], model: ProbeModel, show_tree: bool) -
     if show_tree:
         lines.append("")
         lines.append("Resource/style tree summary:")
+        lines.append(f"  - scan mode: {model.scan_mode}")
+        if model.root_files:
+            lines.append(f"  - root files: {len(model.root_files)}")
+            for root in model.root_files[:20]:
+                lines.append(f"    - {root}")
+            if len(model.root_files) > 20:
+                lines.append("    - ... (truncated)")
         lines.append(f"  - styles indexed: {len(model.styles)}")
         lines.append(f"  - resources indexed: {len(model.resources)}")
         lines.append(f"  - control themes indexed: {len(model.control_themes)}")
         lines.append(f"  - include edges: {len(model.includes)}")
         for edge in model.includes[:50]:
-            lines.append(f"    - {edge['kind']}: {edge['from']} -> {edge['source']}")
+            if edge.get("resolved"):
+                lines.append(
+                    f"    - {edge['kind']}: {edge['from']} -> {edge['source']} (resolved: {edge['resolved']})"
+                )
+            else:
+                lines.append(f"    - {edge['kind']}: {edge['from']} -> {edge['source']} (unresolved)")
         if len(model.includes) > 50:
             lines.append("    - ... (truncated)")
         if model.parse_errors:
@@ -365,6 +542,17 @@ def main(argv: Sequence[str]) -> int:
     )
     parser.add_argument("--show-tree", action="store_true", help="Print style/resource tree summary.")
     parser.add_argument("--json", action="store_true", help="Output JSON.")
+    parser.add_argument(
+        "--root",
+        action="append",
+        default=[],
+        help="Optional root markup file(s) to traverse includes from (relative to --project-root).",
+    )
+    parser.add_argument(
+        "--scan-all",
+        action="store_true",
+        help="Scan all *.axaml/*.xaml files instead of rooted include traversal.",
+    )
     args = parser.parse_args(argv)
 
     project_root = Path(args.project_root).resolve()
@@ -379,7 +567,7 @@ def main(argv: Sequence[str]) -> int:
         return 2
 
     classes = [c.strip() for c in args.classes.split(",") if c.strip()]
-    model = build_model(project_root)
+    model = build_model(project_root, roots=args.root, scan_all=args.scan_all)
     result = estimate_properties(
         model=model,
         control_type=args.control.strip(),
@@ -393,6 +581,8 @@ def main(argv: Sequence[str]) -> int:
             json.dumps(
                 {
                     "summary": {
+                        "scan_mode": model.scan_mode,
+                        "root_files": model.root_files,
                         "styles_indexed": len(model.styles),
                         "resources_indexed": len(model.resources),
                         "control_themes_indexed": len(model.control_themes),
