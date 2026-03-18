@@ -38,12 +38,15 @@ For a real-world example, refer to the **Angor** project:
 ## ✅ Checklist for Clean Layouts
 
 - [ ] **Used semantic containers?** (e.g., `HeaderedContainer` instead of `Border` with manual header)
+- [ ] **Used `HeaderedContainer` for title+body cards?** If a block is "header + content", prefer `HeaderedContainer` with `Header`, `Content`, `HeaderClasses`, `ContentClasses`.
 - [ ] **Avoided redundant properties?** Use shared styles in `axaml` files.
 - [ ] **Scanned effective styles first?** Run `scripts/avalonia_style_probe.py` before adding local attributes.
 - [ ] **Minimized nesting?** Flatten layouts using `EdgePanel` or generic components.
 - [ ] **Icons via extension?** Use `{Icon fa-name}` and `IconOptions` for styling.
 - [ ] **Behaviors over code-behind?** Use `Interaction.Behaviors` for UI-logic.
 - [ ] **Avoided Converters?** Prefer ViewModel properties or Behaviors unless necessary.
+- [ ] **Kept readability while compressing XAML?** Prefer explicit semantic markup over clever local abstractions.
+- [ ] **Theme-aware interactive states?** Hover/selected/focus colors should come from `DynamicResource` backed by `ThemeDictionaries`, not hardcoded literals.
 
 ---
 
@@ -56,6 +59,9 @@ For a real-world example, refer to the **Angor** project:
  - Add local properties before checking what styles already apply.
  - Repeat visual properties across multiple elements (use Styles).
  - Use `IValueConverter` for simple logic that belongs in the ViewModel.
+ - Build cards as `Border + StackPanel + TextBlock(header) + TextBlock(content)` when `HeaderedContainer` fits.
+ - Over-abstract readability away (many local style aliases/classes for one small view).
+ - Hardcode light-mode hover colors without a dark-mode counterpart.
  - When a button has an icon, don't do this:
 
   ```
@@ -77,6 +83,69 @@ For a real-world example, refer to the **Angor** project:
 - Use `DynamicResource` for colors and brushes.
 - Extract repeated layouts into generic components.
 - Leverage `Zafiro.Avalonia` specific panels like `EdgePanel` for common UI patterns.
+
+## 🧠 Semantic Container Decision Rules
+
+Use this decision rule during layout work:
+
+1. If a visual block has **title + content** semantics, default to `HeaderedContainer`.
+2. If it also needs start/end adornments, prefer `EdgePanel` inside `HeaderedContainer` (or as header content).
+3. Keep `Border` for purely decorative wrappers with no semantic header/content meaning.
+
+**Preferred pattern (card-like block):**
+```xml
+<HeaderedContainer Classes="Card White Radius-M"
+                   Header="Desktop App"
+                   Content="Coming soon"
+                   HeaderClasses="Size-L Weight-Bold Text-Strong"
+                   ContentClasses="Size-S Text-Muted" />
+```
+
+**Avoid when equivalent semantic container exists:**
+```xml
+<Border Classes="ColorPanel White Radius-M">
+  <StackPanel Classes="Gap-XS">
+    <TextBlock Classes="Size-L Weight-Bold Text-Strong">Desktop App</TextBlock>
+    <TextBlock Classes="Size-S Text-Muted">Coming soon</TextBlock>
+  </StackPanel>
+</Border>
+```
+
+## 👀 Readability vs Compression Guardrails
+
+Compression is good only when intent remains obvious on first read.
+
+- Prefer explicit semantic properties (`Header`, `Content`, `HeaderClasses`, `ContentClasses`) over "magic" local aliases when scope is small.
+- Avoid introducing many local style names for a single view unless they are reused several times or improve clarity.
+- After refactoring, do a quick readability pass: a teammate should understand structure without jumping across many style definitions.
+
+## 🌗 Theme-aware Interactive State Rules
+
+For stateful visuals (hover, selected, focus, pressed):
+
+- Define state brushes via `ThemeDictionaries` (`Light` and `Dark`).
+- Bind state setters to `{DynamicResource ...}`.
+- Never ship light-only literals for interactive state colors.
+
+**Pattern:**
+```xml
+<UserControl.Resources>
+  <ResourceDictionary>
+    <ResourceDictionary.ThemeDictionaries>
+      <ResourceDictionary x:Key="Light">
+        <SolidColorBrush x:Key="Highlight.Background">#F9FBFB</SolidColorBrush>
+      </ResourceDictionary>
+      <ResourceDictionary x:Key="Dark">
+        <SolidColorBrush x:Key="Highlight.Background">#1F2937</SolidColorBrush>
+      </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+  </ResourceDictionary>
+</UserControl.Resources>
+
+<Style Selector=":is(TemplatedControl):pointerover.Highlight">
+  <Setter Property="Background" Value="{DynamicResource Highlight.Background}" />
+</Style>
+```
 
 ## 🚨 Mandatory Preflight: Style Scan Before Local Attributes
 

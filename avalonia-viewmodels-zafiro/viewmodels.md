@@ -24,6 +24,18 @@ this.WhenAnyValue(x => x.Name)
     .ToPropertyEx(this, x => x.CanSubmit);
 ```
 
+For read-only state derived from other properties, prefer exposing `IObservable<T>` directly and project it with `Select`:
+
+```csharp
+public IObservable<IReadOnlyList<PeriodOption>> DurationPresets =>
+    this.WhenAnyValue(x => x.DurationUnit)
+        .Select(unit => unit == TimeSpan.FromDays(7)
+            ? weeklyPresets
+            : monthlyPresets);
+```
+
+Avoid mutating a derived property from `Subscribe` or `Update*` helper methods when the value can be expressed as a projection.
+
 ## Enhanced Commands
 
 Zafiro uses `IEnhancedCommand`, which extends `ICommand` and `IReactiveCommand` with additional metadata like `Name` and `Text`.

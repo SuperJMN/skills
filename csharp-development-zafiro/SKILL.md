@@ -32,6 +32,24 @@ Favor functional operators over explicit `if (result.HasValue)` or `if (result.I
 - **`Bind`**: Use when the transformation itself returns a `Result` or `Maybe`.
 - **`Match`**: Use when you need to handle both cases (Success/Failure or Some/None) and return a value or Task (branching).
 
+### Prefer Returning `Result<T>` Directly When Caller Expects `Result`
+
+When a method returns `Task<Result>` and the SDK/service returns `Task<Result<T>>`, prefer returning the chained result directly instead of manually converting with `Match`/`if`.
+
+- Keep side effects with `Tap(...)`.
+- Let failures flow naturally without re-wrapping.
+- Avoid extra conversions like `result.Match(_ => Result.Success(), Result.Failure)` unless branching logic is actually needed.
+
+#### Preferred Pattern
+```csharp
+private async Task<Result> ApproveInvestment(...)
+{
+    return await service
+        .ApproveInvestment(request)
+        .Tap(_ => Load.Execute(null));
+}
+```
+
 #### Anti-Pattern
 ```csharp
 if (result.HasValue)
