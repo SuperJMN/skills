@@ -9,6 +9,17 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 > Master modern, clean, and maintainable Avalonia UI layouts.
 > **Focus on semantic containers, shared styles, and minimal XAML.**
 
+## 🚨 RULE ZERO: All Layouts Are Responsive by Default
+
+**Every view, page, or component you create MUST use responsive panels.** This is not optional. Zafiro.Avalonia targets Desktop, Mobile, and Browser — a layout that only works at one size is a bug.
+
+Before writing any AXAML layout, ask yourself:
+1. **Is this a toolbar / bar / row of items?** → Use `FlexPanel` (not StackPanel).
+2. **Is this a grid of content that should reflow?** → Use `BootstrapGridPanel` with per-breakpoint spans (not Grid/UniformGrid).
+3. **Is this app-level structure?** → Use `SemanticPanel` or `BlueprintPanel`.
+
+**Read `responsive.md` before any layout work.** It contains the complete reference.
+
 ## 🎯 Selective Reading Rule
 
 **Read ONLY files relevant to the layout challenge!**
@@ -19,6 +30,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 
 | File | Description | When to Read |
 |------|-------------|--------------|
+| `responsive.md` | **Responsive layout: FlexPanel, BootstrapGridPanel, nesting, panel selection** | **Any layout that must adapt to different screen sizes (ALWAYS read this first)** |
 | `themes.md` | Theme organization and shared styles | Setting up or refining app themes |
 | `containers.md` | Semantic containers (`HeaderedContainer`, `EdgePanel`, `Card`) | Structuring views and layouts |
 | `icons.md` | Icon usage with `IconExtension` and `IconOptions` | Adding and customizing icons |
@@ -37,6 +49,9 @@ For a real-world example, refer to the **Angor** project:
 
 ## ✅ Checklist for Clean Layouts
 
+- [ ] **Responsive by default?** Used `FlexPanel`/`BootstrapGridPanel` instead of fixed Grid/StackPanel? (See `responsive.md`)
+- [ ] **Mobile-first breakpoints?** Set `Col` (base) first, then override with `ColMd`, `ColLg`, etc.?
+- [ ] **FlexPanel for toolbars?** Used `Grow`/`Shrink`/`MarginLeftAuto` instead of fixed StackPanel?
 - [ ] **Used semantic containers?** (e.g., `HeaderedContainer` instead of `Border` with manual header)
 - [ ] **Used `HeaderedContainer` for title+body cards?** If a block is "header + content", prefer `HeaderedContainer` with `Header`, `Content`, `HeaderClasses`, `ContentClasses`.
 - [ ] **Avoided redundant properties?** Use shared styles in `axaml` files.
@@ -55,6 +70,9 @@ For a real-world example, refer to the **Angor** project:
 **DON'T:**
 
  - Use hardcoded colors or sizes (literals) in views.
+ - **Use fixed Grid/StackPanel for layouts that should adapt to screen size.** Use `BootstrapGridPanel` or `FlexPanel` instead.
+ - **Use `UniformGrid Columns="3"` for cards.** Use `BootstrapGridPanel` with per-breakpoint spans.
+ - **Use `StackPanel Orientation="Horizontal"` for toolbars.** Use `FlexPanel` with `Wrap="Wrap"`.
  - Create deep nesting of `Grid` and `StackPanel`.
  - Add local properties before checking what styles already apply.
  - Repeat visual properties across multiple elements (use Styles).
