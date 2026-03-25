@@ -1,6 +1,6 @@
-# Responsive Layout — The Three Tricks
+# Responsive Layout — The Four Tricks
 
-> How to build adaptive UIs that work on Desktop, Tablet, Mobile, and Browser — using the same three primitives that make web layouts "magic".
+> How to build adaptive UIs that work on Desktop, Tablet, Mobile, and Browser — using the same primitives that make web layouts "magic": **Flexbox + Bootstrap Grid + Container Queries**.
 
 ## 🚨 Mandatory: Responsive Is the Default, Not an Upgrade
 
@@ -16,12 +16,34 @@ The only acceptable uses of fixed `Grid` are: form field alignment (label + inpu
 
 ## 🗺️ The Web ↔ Zafiro Map
 
-| Web Primitive | Zafiro Panel | Use For |
+| Web Primitive | Zafiro / Avalonia | Use For |
 |---|---|---|
 | CSS Flexbox | **`FlexPanel`** | 1D flow: toolbars, button groups, navbars, centering |
 | Bootstrap Grid (12-col) | **`BootstrapGridPanel`** | Content reflow: cards, forms, dashboards |
+| `@container` queries | **`ContainerQuery`** (Avalonia native) | Change properties when container crosses a width/height threshold |
+| `@media` queries | `ContainerQuery` on `TopLevel` | Same, but responding to window size |
+| `@media (form-factor)` | **`OnFormFactor`** | Resolve once at startup: Desktop vs Mobile vs TV |
 | CSS Grid / `@media` | **`SemanticPanel`** / **`BlueprintPanel`** | App-level structure: sidebar + primary + secondary |
 | `display:none` / `@media` swap | **`AdaptivePanel`** / **`ResponsivePresenter`** | Show/hide or swap content at breakpoints |
+
+---
+
+## ⚠️ Critical Rule: Local Values vs ContainerQuery
+
+**The #1 gotcha with ContainerQuery.** In Avalonia, local values (attributes set directly on a control) **always win** over styles — including ContainerQuery styles. This is equivalent to CSS inline `style="..."` beating `@container`.
+
+```xml
+<!-- ❌ WRONG — ContainerQuery can NEVER override this Direction -->
+<FlexPanel x:Name="Shell" Direction="ColumnReverse" />
+
+<!-- ✅ RIGHT — Default set via Style, ContainerQuery can override -->
+<Style Selector="FlexPanel#Shell">
+    <Setter Property="Direction" Value="ColumnReverse" />
+</Style>
+<FlexPanel x:Name="Shell" />
+```
+
+**Rule: Any property that ContainerQuery must control MUST be set via a Style, not as a local attribute.**
 
 ---
 
@@ -159,29 +181,141 @@ If `ColLg` is not set, the panel falls back to `ColMd` → `ColSm` → `Col`. Th
 
 ---
 
-## 🔧 Trick 3 — Nest Them
+## 🔧 Trick 3 — ContainerQuery for Responsive Property Changes
+
+**This is the missing link that makes Avalonia layouts work exactly like the web.** Avalonia's native `ContainerQuery` is the equivalent of CSS `@container` queries — it changes style properties when a container crosses a size threshold.
+
+### The Pattern: FlexPanel + ContainerQuery = Responsive Shell
+
+This is how web developers build responsive sidebars, and it works identically in Avalonia:
+
+**CSS equivalent:**
+```css
+.shell { display: flex; flex-direction: column-reverse; }
+.sidebar { flex-shrink: 0; }
+.content { flex-grow: 1; }
+@container shell (min-width: 500px) {
+    .shell { flex-direction: row; }
+    .sidebar { width: 200px; }
+    .sidebar-nav { flex-direction: column; }
+}
+```
+
+**Avalonia equivalent:**
+```xml
+<UserControl.Styles>
+    <!-- Mobile-first defaults (MUST be Styles, not local values!) -->
+    <Style Selector="FlexPanel#ShellLayout">
+        <Setter Property="Direction" Value="ColumnReverse" />
+    </Style>
+    <Style Selector="FlexPanel#SidebarNav">
+        <Setter Property="Direction" Value="Row" />
+        <Setter Property="JustifyContent" Value="SpaceEvenly" />
+    </Style>
+</UserControl.Styles>
+
+<!-- Container that tracks its own width -->
+<Border Container.Name="shell" Container.Sizing="Width">
+    <Border.Styles>
+        <!-- Desktop: sidebar left, nav vertical -->
+        <ContainerQuery Name="shell" Query="min-width:500">
+            <Style Selector="FlexPanel#ShellLayout">
+                <Setter Property="Direction" Value="Row" />
+            </Style>
+            <Style Selector="Border#Sidebar">
+                <Setter Property="Width" Value="200" />
+            </Style>
+            <Style Selector="FlexPanel#SidebarNav">
+                <Setter Property="Direction" Value="Column" />
+            </Style>
+        </ContainerQuery>
+    </Border.Styles>
+
+    <FlexPanel x:Name="ShellLayout" AlignItems="Stretch">
+        <Border x:Name="Sidebar" FlexPanel.Shrink="0">
+            <FlexPanel x:Name="SidebarNav" Gap="4" AlignItems="Center">
+                <TextBlock Text="🏠 Home" />
+                <TextBlock Text="📊 Analytics" />
+                <TextBlock Text="⚙️ Settings" />
+            </FlexPanel>
+        </Border>
+        <Border FlexPanel.Grow="1">
+            <!-- Content fills remaining space -->
+        </Border>
+    </FlexPanel>
+</Border>
+```
+
+### How it works
+1. **Mobile-first**: `Direction="ColumnReverse"` puts sidebar at bottom, nav is horizontal
+2. **Desktop** (≥500px): `ContainerQuery` overrides to `Direction="Row"`, sidebar gets fixed width, nav becomes vertical
+3. **One property flip** on the panel reorganizes the entire layout
+
+### ContainerQuery Syntax Reference
+
+**Declaring a container:**
+```xml
+<Border Container.Name="mycontainer" Container.Sizing="Width">
+```
+
+`Container.Sizing` values: `Normal` (none), `Width`, `Height`, `WidthAndHeight`
+
+**Writing queries:**
+```xml
+<ContainerQuery Name="mycontainer" Query="min-width:600">
+    <Style Selector="...">
+        <Setter Property="..." Value="..." />
+    </Style>
+</ContainerQuery>
+```
+
+**Combining conditions:**
+```xml
+<!-- AND: both must match -->
+<ContainerQuery Name="x" Query="min-width:400 and max-width:800">
+
+<!-- OR: either can match -->
+<ContainerQuery Name="x" Query="max-width:300,min-height:600">
+```
+
+**Window-level queries:** Set `Container.Name` and `Container.Sizing` on the `TopLevel` (window) to make ContainerQuery behave like CSS `@media` queries.
+
+### Why FlexPanel + ContainerQuery over DockPanel
+
+| Aspect | FlexPanel | DockPanel |
+|---|---|---|
+| Layout change | 1 setter: `Direction` on panel | N setters: `DockPanel.Dock` on each child |
+| Fill remaining space | `Grow="1"` (explicit, any child) | `LastChildFill` (implicit, last child only) |
+| Cross-axis alignment | `AlignItems`, `JustifyContent` | None |
+| Auto-margin push | `MarginLeftAuto` | None |
+| Wrapping | `Wrap="Wrap"` | None |
+
+**Use FlexPanel** for any layout that needs to adapt. Reserve DockPanel/SmartDockPanel for fixed structural shells that never change.
+
+---
+
+## 🔧 Trick 4 — Nest Them
 
 The real power comes from combining panels. Each panel handles one level of the layout hierarchy:
 
 ```
 App Window
- └─ SemanticPanel               → app structure (sidebar + content zones)
+ └─ FlexPanel + ContainerQuery  → responsive shell (sidebar + content)
      ├─ Sidebar zone
-     │   └─ FlexPanel Column    → vertical nav links
-     ├─ Primary zone
-     │   └─ BootstrapGridPanel  → responsive content grid
-     │       ├─ Card (Col=12, ColMd=6, ColLg=4)
-     │       └─ Card (...)
-     └─ ActionPrimary zone
-         └─ FlexPanel Row       → toolbar with auto + stretch
+     │   └─ FlexPanel Column    → vertical nav links (Row on mobile)
+     └─ Content zone
+         └─ BootstrapGridPanel  → responsive content grid
+             ├─ Card (Col=12, ColMd=6, ColLg=4)
+             └─ Card (...)
 ```
 
 ### Nesting Rules
 
-1. **SemanticPanel at the top** for app structure — never nest SemanticPanels.
-2. **BootstrapGridPanel inside content zones** for responsive grids.
+1. **FlexPanel + ContainerQuery** for responsive structural layout (sidebar/content, toolbar direction changes).
+2. **BootstrapGridPanel inside content zones** for responsive grids (no ContainerQuery needed — breakpoints are built in).
 3. **FlexPanel inside grid cells** for local auto/stretch row behavior.
-4. **Standard panels (StackPanel, Grid, DockPanel)** for leaf-level local layout.
+4. **SemanticPanel or BlueprintPanel** for app-level structure with predefined roles (if role-based semantics are needed).
+5. **Standard panels (StackPanel, Grid, DockPanel)** for leaf-level local layout.
 
 ---
 
@@ -243,6 +377,7 @@ Grid layout defined by a text template. Numbers are child indices, `.` is empty.
 
 | Scenario | Panel | Why |
 |---|---|---|
+| Sidebar + content (responsive) | `FlexPanel` + `ContainerQuery` | Direction flip, Grow for fill |
 | Toolbar / nav bar / button row | `FlexPanel` `Direction="Row"` | Auto + stretch, `MarginLeftAuto` for push-right |
 | Cards / tiles that reflow by screen width | `BootstrapGridPanel` | Per-breakpoint column spans |
 | App-level structure (sidebar + content) | `SemanticPanel` | Role-based zones, 3 size classes |
@@ -316,6 +451,19 @@ Grid layout defined by a text template. Numbers are child indices, `.` is empty.
 </panels:BootstrapGridPanel>
 ```
 
+### Don't set local values on properties controlled by ContainerQuery
+
+```xml
+<!-- ❌ WRONG — local value beats ContainerQuery, layout never changes -->
+<FlexPanel x:Name="Shell" Direction="ColumnReverse" />
+
+<!-- ✅ RIGHT — default via Style, ContainerQuery can override -->
+<Style Selector="FlexPanel#Shell">
+    <Setter Property="Direction" Value="ColumnReverse" />
+</Style>
+<FlexPanel x:Name="Shell" />
+```
+
 ---
 
 ## 🔗 XAML Namespace
@@ -329,8 +477,8 @@ xmlns:controls="clr-namespace:Zafiro.Avalonia.Controls;assembly=Zafiro.Avalonia"
 
 - `src/Zafiro.Avalonia/Controls/Panels/FlexPanel.cs` — 800-line CSS Flexbox implementation
 - `src/Zafiro.Avalonia/Controls/Panels/BootstrapGridPanel.cs` — Full Bootstrap 5 grid with 6 breakpoint tiers
-- `samples/TestApp/TestApp/Samples/Panels/PanelsView.axaml` — BootstrapGridPanel demo
+- `samples/TestApp/TestApp/Samples/Layout/ResponsiveLayoutsView.axaml` — **Verified responsive layout demo** (FlexPanel + ContainerQuery + BootstrapGridPanel)
 - `samples/TestApp/TestApp/Samples/Layout/FlexPanelView.axaml` — FlexPanel demo (7 scenarios)
-- `samples/TestApp/TestApp/Samples/Layout/AdaptivePanelView.axaml` — AdaptivePanel demo
-- `samples/TestApp/TestApp/Samples/Layout/ResponsivePresenter/ResponsivePresenterView.axaml` — ResponsivePresenter demo
+- `samples/TestApp/TestApp/Samples/Panels/PanelsView.axaml` — BootstrapGridPanel demo
+- `docs/ai/responsive-design.md` — Responsive design recipes with complete examples
 - `test/Zafiro.Avalonia.Tests/Panels/BootstrapGridPanelTests.cs` — 44 headless tests validating all BootstrapGridPanel behavior
