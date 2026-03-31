@@ -30,7 +30,7 @@ Before writing any AXAML layout, ask yourself:
 
 | File | Description | When to Read |
 |------|-------------|--------------|
-| `responsive.md` | **Responsive layout: FlexPanel, BootstrapGridPanel, nesting, panel selection** | **Any layout that must adapt to different screen sizes (ALWAYS read this first)** |
+| `responsive.md` | **Responsive layout: FlexPanel, BootstrapGridPanel, nesting, panel selection, responsive typography** | **Any layout that must adapt to different screen sizes (ALWAYS read this first)** |
 | `themes.md` | Theme organization and shared styles | Setting up or refining app themes |
 | `containers.md` | Semantic containers (`HeaderedContainer`, `EdgePanel`, `Card`) | Structuring views and layouts |
 | `icons.md` | Icon usage with `IconExtension` and `IconOptions` | Adding and customizing icons |
@@ -50,6 +50,7 @@ For a real-world example, refer to the **Angor** project:
 ## ✅ Checklist for Clean Layouts
 
 - [ ] **Responsive by default?** Used `FlexPanel`/`BootstrapGridPanel` instead of fixed Grid/StackPanel? (See `responsive.md`)
+- [ ] **Responsive typography?** Used `Window.Compact` class toggle for mobile font sizes? Never `ContainerQuery` on MainWindow for global typography? (See `responsive.md` Trick 5)
 - [ ] **Mobile-first breakpoints?** Set `Col` (base) first, then override with `ColMd`, `ColLg`, etc.?
 - [ ] **FlexPanel for toolbars?** Used `Grow`/`Shrink`/`MarginLeftAuto` instead of fixed StackPanel?
 - [ ] **Used semantic containers?** (e.g., `HeaderedContainer` instead of `Border` with manual header)

@@ -482,3 +482,118 @@ xmlns:controls="clr-namespace:Zafiro.Avalonia.Controls;assembly=Zafiro.Avalonia"
 - `samples/TestApp/TestApp/Samples/Panels/PanelsView.axaml` — BootstrapGridPanel demo
 - `docs/ai/responsive-design.md` — Responsive design recipes with complete examples
 - `test/Zafiro.Avalonia.Tests/Panels/BootstrapGridPanelTests.cs` — 44 headless tests validating all BootstrapGridPanel behavior
+
+---
+
+## 🔤 Trick 5 — Responsive Typography with Breakpoints.Avalonia
+
+Font sizes need to scale down on smaller screens. The recommended approach uses **Breakpoints.Avalonia** to detect the breakpoint and a **CSS-class toggle** on MainWindow to activate mobile typography styles.
+
+### ⚠️ Performance Warning: Do NOT Use ContainerQuery for Global Typography
+
+Putting `Container.Sizing="Width"` on `MainWindow` and using `ContainerQuery` for font size overrides causes **severe UI freezes** (~3–9 seconds per navigation). This is because `Container.Sizing` forces Avalonia to track layout changes at the root level and re-evaluate all ContainerQuery styles for the entire visual tree on every navigation.
+
+**ContainerQuery is great for local, component-scoped responsive layout** (e.g., a sidebar collapse). It is **not** suitable for global style overrides applied to every TextBlock in the app.
+
+### The Pattern: Breakpoints.Avalonia + StyleClass Toggle
+
+**1. Install and configure Breakpoints.Avalonia**
+
+```xml
+<!-- App.axaml -->
+<Application.Styles>
+    <StyleInclude Source="UI/Themes/V2/Theme.axaml" />
+    <avvi:ResponsivityBreakpoints />
+</Application.Styles>
+```
+
+**2. MainWindow as breakpoint provider**
+
+```xml
+<!-- MainWindow.axaml -->
+<Window avvi:Breakpoints.IsBreakpointProvider="True" ...>
+```
+
+```csharp
+// MainWindow.axaml.cs
+BreakpointList breakpoints = [("XS", 1), ("S", 768)];
+BP.SetValues(this, breakpoints);
+
+this.GetObservable(BP.CurrentBreakpointProperty)
+    .Subscribe(bp => Classes.Set("Compact", bp != "S"));
+```
+
+When the window is narrower than 768px, class `Compact` is added. When wider, it's removed. This only fires when crossing the threshold — zero overhead during normal navigation.
+
+**3. Typography overrides via descendant selectors**
+
+```xml
+<!-- Typography.axaml — Desktop defaults (≥768px) -->
+<Style Selector=":is(Control).Size-XXL">
+    <Setter Property="TextElement.FontSize" Value="32" />
+</Style>
+<Style Selector=":is(Control).Size-XL">
+    <Setter Property="TextElement.FontSize" Value="25" />
+</Style>
+<!-- ... etc ... -->
+
+<!-- Mobile overrides (<768px) — each size shifts down one level -->
+<Style Selector="Window.Compact :is(Control).Size-XXL">
+    <Setter Property="TextElement.FontSize" Value="25" />
+</Style>
+<Style Selector="Window.Compact :is(Control).Size-XL">
+    <Setter Property="TextElement.FontSize" Value="18" />
+</Style>
+<Style Selector="Window.Compact :is(Control).Size-L">
+    <Setter Property="TextElement.FontSize" Value="16" />
+</Style>
+<Style Selector="Window.Compact :is(Control).Size-M">
+    <Setter Property="TextElement.FontSize" Value="14" />
+</Style>
+<Style Selector="Window.Compact :is(Control).Size-S">
+    <Setter Property="TextElement.FontSize" Value="12" />
+</Style>
+<Style Selector="Window.Compact :is(Control).Size-XS">
+    <Setter Property="TextElement.FontSize" Value="11" />
+</Style>
+
+<!-- Semantic presets also shift down -->
+<Style Selector="Window.Compact TextBlock.Title">
+    <Setter Property="FontSize" Value="18" />
+</Style>
+<!-- ... etc ... -->
+```
+
+### Size Scale Reference
+
+| Class | Desktop (≥768) | Mobile (<768) |
+|-------|---------|--------|
+| Size-XXL | 32px | 25px |
+| Size-XL | 25px | 18px |
+| Size-L | 18px | 16px |
+| Size-M | 16px | 14px |
+| Size-S | 14px | 12px |
+| Size-XS | 12px | 11px |
+| Size-XXS | 11px | 11px (min) |
+
+### Why This Works Well
+
+- **Zero layout overhead**: The `Compact` class only toggles when crossing 768px. No tracking, no ContainerQuery re-evaluation.
+- **Pure CSS-like**: Descendant selectors (`Window.Compact :is(Control).Size-XL`) work exactly like CSS media query overrides.
+- **Extensible**: The same `Window.Compact` class can be used for other responsive overrides (spacing, visibility, layout).
+- **Future-proof**: If controls get their own size variants (e.g., `Button.Large`), just add `Window.Compact Button.Large TextBlock { FontSize: smaller }`.
+
+### Extending to Component-Level Sizing
+
+If a control (e.g., Button) defines its own size variants with implicit font sizing:
+
+```xml
+<Style Selector="Button.Large TextBlock">
+    <Setter Property="FontSize" Value="18" />
+</Style>
+
+<!-- Add mobile override -->
+<Style Selector="Window.Compact Button.Large TextBlock">
+    <Setter Property="FontSize" Value="16" />
+</Style>
+```
