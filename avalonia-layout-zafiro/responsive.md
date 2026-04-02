@@ -110,6 +110,36 @@ Use `FlexPanel` whenever you need items in a row/column with **auto + stretch** 
 - **For equal columns**: Set `Grow="1" Shrink="1" Basis="0"` on each child.
 - **For sticky footer**: Use `Direction="Column"` with `Grow="1"` on the content area, `MarginTopAuto="True"` on the footer.
 
+### Trick 1b — Responsive Two-Column with Asymmetric Grow (DockPanel-like + Wrap)
+
+Use this for **detail pages** where a main content area (left) should fill available space while a fixed-width sidebar/card (right, e.g. 400px) sits beside it — but they should **stack vertically** when the container is too narrow.
+
+The trick: give **both** children a `Grow` value, but with a **highly asymmetric ratio** (e.g. 100:1). When both fit on the same line, the left item gets ~99% of extra space. When the right wraps to its own flex line, its `Grow="1"` stretches it to full width (since it's the only item on that line).
+
+```xml
+<FlexPanel Direction="Row" Wrap="Wrap" ColumnGap="20" RowGap="20">
+    <!-- Main content: high Grow absorbs nearly all extra space -->
+    <Border FlexPanel.Grow="100">
+        <!-- header, description, etc. -->
+    </Border>
+
+    <!-- Sidebar/card: Basis sets preferred width, Grow="1" stretches when alone on a line -->
+    <ContentControl FlexPanel.Basis="400" FlexPanel.Grow="1">
+        <!-- investment card, info panel, etc. -->
+    </ContentControl>
+</FlexPanel>
+```
+
+**Behavior:**
+| Container width | Layout | Left size | Right size |
+|---|---|---|---|
+| Wide (≥ ~820px) | Side by side | Fills remaining (~all extra) | ~400px |
+| Narrow (< ~820px) | Stacked | Full width | Full width |
+
+**Why not DockPanel?** DockPanel doesn't wrap. This FlexPanel pattern gives identical wide-screen behavior (right docked, left fills) **plus** automatic vertical stacking on narrow screens.
+
+**Real-world example:** `DetailsView.axaml` in FindProjects — header card (`Grow="100"`) + investment opportunity card (`Basis="400" Grow="1"`).
+
 ---
 
 ## 🔧 Trick 2 — BootstrapGridPanel for Responsive Content Reflow
