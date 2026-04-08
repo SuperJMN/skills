@@ -1,6 +1,6 @@
 # Shader Effects
 
-Shader effects use `SKRuntimeEffect` (SkSL) to execute per-pixel GPU shaders. They are ideal for patterns, overlays, and post-processing effects that go beyond what `SKImageFilter` pipelines express natively.
+Shader effects use `SKRuntimeEffect` (SkSL) to execute per-pixel GPU shaders. They are ideal for patterns, overlays, post-processing, and multi-input transitions that go beyond what `SKImageFilter` pipelines express natively.
 
 ## Required Interfaces
 
@@ -96,8 +96,9 @@ public static SkiaShaderEffect Create(
     bool isAntialias = true,
     SKRect? destinationRect = null,    // Defaults to context.EffectBounds
     SKMatrix? localMatrix = null,
-    Action<SKCanvas, SKImage, SKRect>? fallbackRenderer = null  // CPU fallback
-)
+    Action<SKCanvas, SKImage, SKRect>? fallbackRenderer = null,  // CPU fallback
+    Action<SKRuntimeEffectChildren, SkiaShaderEffectContext, ICollection<IDisposable>>? configureOwnedChildren = null,
+    IEnumerable<IDisposable>? ownedResources = null)
 ```
 
 ### Key Parameters
@@ -107,10 +108,16 @@ public static SkiaShaderEffect Create(
 - **`blendMode`**: How the shader composites over the content. Default `SrcOver`.
 - **`fallbackRenderer`**: Optional CPU-based renderer when runtime shaders aren't available. **Always provide one for maximum compatibility.**
 - **`contentChildName`**: If your shader reads the source content as a child shader, name the uniform here.
+- **`configureOwnedChildren`**: Like `configureChildren` but with an `ICollection<IDisposable>` for child shaders that need lifecycle management. Use this when binding secondary shader images.
+- **`ownedResources`**: Additional disposable resources (e.g., `SkiaShaderImageLease`) tied to the effect's lifetime.
 
 ### Shader Source Caching
 
 `SkiaRuntimeShaderBuilder` caches compiled `SKRuntimeEffect` by SkSL source string, so define shader source as a `const string` field for cache hits.
+
+### Direct Runtime Shaders
+
+On supported SkiaSharp 3.x runtimes, direct runtime shaders are enabled by default. Set `EFFECTOR_ENABLE_DIRECT_RUNTIME_SHADERS=false` to force the fallback path when needed; fallback renderers are still used automatically when shader compilation fails.
 
 ## SkiaShaderEffectContext
 
@@ -124,7 +131,9 @@ Available in shader factory methods:
 | `UsesOpacitySaveLayer` | Whether opacity is applied via save layer |
 | `ApplyOpacity(color, opacity)` | Applies effective opacity to a color |
 | `CreateColor(r, g, b, opacity)` | Creates opacity-aware color |
-| `CreateContentShader(tileX, tileY)` | Creates an `SKShader` from the rendered content image |
+| `CreateContentShader(tileX?, tileY?)` | Creates an `SKShader` from the rendered content image (default: Clamp) |
+| `BlurRadiusToSigma(radius)` | Static: converts blur radius to sigma |
+| `ClampToByte(value)` | Static: clamps double to byte |
 
 ## Fallback Renderers
 
@@ -146,6 +155,99 @@ SkiaRuntimeShaderBuilder.Create(
         };
         // Draw approximation...
     });
+```
+
+## Secondary Shader Images
+
+Multi-input shader effects can carry extra bitmap inputs through `SkiaShaderImageHandle`, `SkiaShaderImageRegistry`, and `SkiaShaderImageLease`. The handle is a value type compatible with Effector's immutable snapshot model.
+
+### Registration and Acquisition
+
+```csharp
+// Register an Avalonia Bitmap to get a handle
+var handle = SkiaShaderImageRegistry.Register(bitmap);
+
+// In the factory, acquire a lease
+if (SkiaShaderImageRegistry.TryAcquire(handle, out var lease))
+{
+    // lease.Image is an SKImage — bind as child shader
+    // Pass lease as ownedResource so it's disposed with the effect
+}
+
+// Release the handle when no longer needed
+SkiaShaderImageRegistry.Release(handle);
+```
+
+### Binding Secondary Images as Child Shaders
+
+Use `configureOwnedChildren` to bind secondary images and manage their lifecycle:
+
+```csharp
+public SkiaShaderEffect? CreateShaderEffect(object[] values, SkiaShaderEffectContext context)
+{
+    var fromHandle = (SkiaShaderImageHandle)values[FromImageIndex];
+    var toHandle = (SkiaShaderImageHandle)values[ToImageIndex];
+
+    if (!SkiaShaderImageRegistry.TryAcquire(fromHandle, out var fromLease)
+        || !SkiaShaderImageRegistry.TryAcquire(toHandle, out var toLease))
+    {
+        fromLease?.Dispose();
+        return null;
+    }
+
+    return SkiaRuntimeShaderBuilder.Create(
+        ShaderSource,
+        context,
+        uniforms => { /* set uniforms */ },
+        configureOwnedChildren: (children, _, ownedResources) =>
+        {
+            var fromShader = fromLease.Image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+            children.Add("fromImage", fromShader);
+            ownedResources.Add(fromShader);
+
+            var toShader = toLease.Image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+            children.Add("toImage", toShader);
+            ownedResources.Add(toShader);
+        },
+        ownedResources: new IDisposable[] { fromLease, toLease });
+}
+```
+
+### Compiz-Style Route Transitions
+
+The compiz sample demonstrates full-page shader transitions using two captured page images. The effect class uses `SkiaShaderImageHandle` properties for from/to images:
+
+```csharp
+[SkiaEffect(typeof(CompizTransitionEffectFactory))]
+public sealed class CompizTransitionEffect : SkiaEffectBase
+{
+    public static readonly StyledProperty<CompizTransitionKind> KindProperty = ...;
+    public static readonly StyledProperty<SkiaShaderImageHandle> FromImageProperty = ...;
+    public static readonly StyledProperty<SkiaShaderImageHandle> ToImageProperty = ...;
+    public static readonly StyledProperty<double> ProgressProperty = ...;
+    public static readonly StyledProperty<double> TimeProperty = ...;
+    public static readonly StyledProperty<double> ClickXProperty = ...;
+    public static readonly StyledProperty<double> ClickYProperty = ...;
+    // ...
+}
+```
+
+The SkSL shader declares two child shader uniforms:
+
+```glsl
+uniform shader fromImage;
+uniform shader toImage;
+uniform float width;
+uniform float height;
+uniform float progress;
+// ...
+
+half4 main(float2 coord) {
+    half4 fromColor = fromImage.eval(coord);
+    half4 toColor = toImage.eval(coord);
+    // Transition logic using progress...
+    return mix(fromColor, toColor, half(reveal));
+}
 ```
 
 ## Examples
@@ -201,7 +303,8 @@ private const string ShaderSource =
         float gx = fract(coord.x / span);
         float gy = fract(coord.y / span);
         float alpha = (gx < 0.06 || gy < 0.06) ? strength : 0.0;
-        return half4(red, green, blue, alpha);
+        half premulAlpha = half(alpha);
+        return half4(red * premulAlpha, green * premulAlpha, blue * premulAlpha, premulAlpha);
     }
     """;
 ```
@@ -213,7 +316,7 @@ Use `blendMode: SKBlendMode.Screen` for additive-light effects:
 ```csharp
 public SkiaShaderEffect CreateShaderEffect(object[] values, SkiaShaderEffectContext context)
 {
-    var color = (Color)values[4];
+    var color = (Color)values[ColorIndex];
     return SkiaRuntimeShaderBuilder.Create(
         ShaderSource,
         context,
@@ -229,7 +332,11 @@ public SkiaShaderEffect CreateShaderEffect(object[] values, SkiaShaderEffectCont
             uniforms.Add("green", color.G / 255f);
             uniforms.Add("blue", color.B / 255f);
         },
-        blendMode: SKBlendMode.Screen);
+        blendMode: SKBlendMode.Screen,
+        fallbackRenderer: (canvas, _, rect) =>
+        {
+            // Concentric ring approximation...
+        });
 }
 ```
 
@@ -241,8 +348,9 @@ SkSL (Skia Shading Language) is GLSL-like:
 - Types: `float`, `float2`, `float3`, `float4`, `half4`, `bool`
 - Built-ins: `fract`, `max`, `min`, `clamp`, `sqrt`, `sin`, `cos`, `mix`, `step`, `smoothstep`
 - Uniforms declared with `uniform` keyword — set from C# via `configureUniforms`
-- Child shaders declared with `uniform shader childName` — bound via `configureChildren`
+- Child shaders declared with `uniform shader childName` — bound via `configureChildren` or `configureOwnedChildren`
 - Return `half4(r, g, b, a)` in premultiplied alpha
+- Access child shader output: `childName.eval(coord)`
 
 ### Passing Host Bounds to Shaders
 

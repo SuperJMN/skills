@@ -1,6 +1,6 @@
 # API Reference
 
-Complete reference for all public Effector types.
+Complete reference for all public Effector types (Avalonia 12.0.0, Effector 0.5.0).
 
 ## Effect Base Classes
 
@@ -155,8 +155,16 @@ public readonly struct SkiaShaderEffectContext
 
     public SKColor ApplyOpacity(SKColor color, double opacity = 1d);
     public SKColor CreateColor(byte red, byte green, byte blue, double opacity = 1d);
-    public SKShader CreateContentShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY);
-    public SKShader CreateContentShader(SKShaderTileMode tileModeX, SKShaderTileMode tileModeY, SKMatrix localMatrix);
+    public SKShader CreateContentShader(
+        SKShaderTileMode tileModeX = SKShaderTileMode.Clamp,
+        SKShaderTileMode tileModeY = SKShaderTileMode.Clamp);
+    public SKShader CreateContentShader(
+        SKShaderTileMode tileModeX,
+        SKShaderTileMode tileModeY,
+        SKMatrix localMatrix);
+
+    public static float BlurRadiusToSigma(double radius);
+    public static byte ClampToByte(double value);
 }
 ```
 
@@ -191,11 +199,20 @@ public readonly struct SkiaEffectHostContext
 
 ### SkiaShaderEffect
 
-Encapsulates a compiled shader, blend mode, and optional fallback renderer. **Disposable.**
+Encapsulates a compiled shader, blend mode, owned resources, and optional fallback renderer. **Disposable.**
 
 ```csharp
 public sealed class SkiaShaderEffect : IDisposable
 {
+    public SkiaShaderEffect(
+        SKShader? shader,
+        SKBlendMode blendMode = SKBlendMode.SrcOver,
+        bool isAntialias = true,
+        SKRect? destinationRect = null,
+        SKMatrix? localMatrix = null,
+        Action<SKCanvas, SKImage, SKRect>? fallbackRenderer = null,
+        IEnumerable<IDisposable>? ownedResources = null);
+
     public SKShader? Shader { get; }
     public SKBlendMode BlendMode { get; }
     public bool IsAntialias { get; }
@@ -207,6 +224,8 @@ public sealed class SkiaShaderEffect : IDisposable
     public void Dispose();
 }
 ```
+
+The `ownedResources` are disposed in reverse order when the effect is disposed. Use this for `SkiaShaderImageLease`, child `SKShader` instances, or any transient GPU resources tied to the effect's lifetime.
 
 ### SkiaRuntimeShaderBuilder
 
@@ -226,12 +245,61 @@ public static class SkiaRuntimeShaderBuilder
         bool isAntialias = true,
         SKRect? destinationRect = null,
         SKMatrix? localMatrix = null,
-        Action<SKCanvas, SKImage, SKRect>? fallbackRenderer = null);
+        Action<SKCanvas, SKImage, SKRect>? fallbackRenderer = null,
+        Action<SKRuntimeEffectChildren, SkiaShaderEffectContext, ICollection<IDisposable>>? configureOwnedChildren = null,
+        IEnumerable<IDisposable>? ownedResources = null);
 }
 ```
 
 - Caches compiled `SKRuntimeEffect` by SkSL string — use `const string` for cache hits
 - Falls back to `fallbackRenderer` when `EffectorRuntime.DirectRuntimeShadersEnabled` is false or compilation fails
+- **`configureOwnedChildren`**: Like `configureChildren` but with an `ICollection<IDisposable>` for child shaders that must be disposed when the effect is disposed
+- **`ownedResources`**: Additional disposable resources (e.g., `SkiaShaderImageLease`) to tie to the effect's lifetime
+
+---
+
+## Secondary Shader Image Types
+
+### SkiaShaderImageHandle
+
+Value-type handle referencing a registered `SKImage`. Compatible with Effector's immutable snapshot model (safe in `StyledProperty<SkiaShaderImageHandle>`).
+
+```csharp
+public readonly struct SkiaShaderImageHandle : IEquatable<SkiaShaderImageHandle>
+{
+    public long Value { get; }
+    public bool IsEmpty { get; }
+}
+```
+
+### SkiaShaderImageRegistry
+
+Thread-safe registry for managing secondary shader images:
+
+```csharp
+public static class SkiaShaderImageRegistry
+{
+    public static SkiaShaderImageHandle Register(Bitmap bitmap);
+    public static bool TryAcquire(SkiaShaderImageHandle handle, out SkiaShaderImageLease? lease);
+    public static void Release(SkiaShaderImageHandle handle);
+}
+```
+
+- `Register` converts an Avalonia `Bitmap` into an `SKImage` and returns a handle
+- `TryAcquire` returns a lease that keeps the `SKImage` alive
+- `Release` marks the handle for disposal (actual disposal deferred until all leases are released)
+
+### SkiaShaderImageLease
+
+RAII lease keeping a registered `SKImage` alive until disposed:
+
+```csharp
+public sealed class SkiaShaderImageLease : IDisposable
+{
+    public SKImage Image { get; }
+    public void Dispose();
+}
+```
 
 ---
 
@@ -286,17 +354,19 @@ var filter = new ColorMatrixBuilder()
 | `EffectorEnabled` | `true` | Enable/disable Effector |
 | `EffectorStrict` | `true` | Fail build on weaving errors |
 | `EffectorVerbose` | `false` | Emit detailed build logs |
-| `EffectorSupportedAvaloniaVersion` | `11.3.12` | Expected Avalonia version |
+| `EffectorSupportedAvaloniaVersion` | `12.0.0` | Expected Avalonia version |
 
 ---
 
 ## Constraints and Pitfalls
 
 1. **Sequential builds required**: Use `-m:1` for solution builds to avoid self-weaver races
-2. **Avalonia 11.3.12 only**: Effector patches specific Avalonia assembly versions
+2. **Avalonia 12.0.0 only**: Effector patches specific Avalonia assembly versions
 3. **Skia renderer only**: Non-Skia renderers are not supported
 4. **Render-thread safety**: Factory `object[]` methods run on the render thread — never access `AvaloniaObject` or UI-thread state
 5. **Value ordering**: The `object[]` array matches the property declaration order in the effect class — use `const int` index fields
 6. **Shader source as `const string`**: Enables `SkiaRuntimeShaderBuilder` cache hits
 7. **Always provide `fallbackRenderer`** for shader effects to support environments without runtime shader support
 8. **`sealed` effect classes**: Effect classes should be `sealed` for correct weaving
+9. **Owned resources**: When using secondary shader images or transient child shaders, pass them as `ownedResources` or via `configureOwnedChildren` so they are disposed with the `SkiaShaderEffect`
+10. **Release shader image handles**: Call `SkiaShaderImageRegistry.Release(handle)` when the image is no longer needed; the underlying `SKImage` is disposed once all leases are returned

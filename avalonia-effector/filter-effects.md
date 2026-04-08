@@ -1,6 +1,6 @@
 # Filter Effects
 
-Filter effects produce `SKImageFilter` instances that Avalonia applies during rendering. They are the simplest Effector category and suitable for color corrections, blur, glow, pixelation, convolution, and composition.
+Filter effects produce `SKImageFilter` instances that Avalonia applies during rendering. They are the simplest Effector category and suitable for color corrections, blur, glow, pixelation, convolution, and composition. Targets Avalonia 12.0.0.
 
 ## Required Interfaces
 

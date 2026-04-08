@@ -5,16 +5,18 @@ description: Creating custom Skia-backed visual effects for Avalonia UI using th
 
 # Avalonia Effector — Custom Visual Effects
 
-Effector brings extensible Skia-backed custom effects to **Avalonia 11.3.12** while preserving the public `Visual.Effect : IEffect?` contract. It uses compile-time effect weaving and app-local Avalonia assembly patching — no runtime detours.
+Effector brings extensible Skia-backed custom effects to **Avalonia 12.0.0** while preserving the public `Visual.Effect : IEffect?` contract. It uses compile-time effect weaving and app-local Avalonia assembly patching — no runtime detours.
 
 **Repository:** <https://github.com/wieslawsoltes/Effector>
-**NuGet:** `Effector`
+**NuGet:** `Effector` (v0.5.0)
+**SkiaSharp:** `3.119.3-preview.1.1`
 
 ## When to Use This Skill
 
 - User wants to add visual effects (blur, glow, tint, pixelate, etc.) to Avalonia controls
 - User needs runtime SkSL shader effects in Avalonia
 - User wants pointer-driven interactive effects (spotlight, ripple, reactive grid)
+- User needs multi-input shader effects with secondary images (route transitions, blend effects)
 - User is building a custom `IEffect` for Avalonia's `Visual.Effect` property
 - User asks about `SkiaEffectBase`, `SkiaShaderEffect`, or Effector types
 
@@ -60,7 +62,7 @@ public sealed class TintEffect : SkiaEffectBase
         AvaloniaProperty.Register<TintEffect, Color>(nameof(Color), Colors.DeepSkyBlue);
 
     public static readonly StyledProperty<double> StrengthProperty =
-        AvaloniaProperty.Register<TintEffect, double>(nameof(Strength), 0.5d);
+        AvaloniaProperty.Register<TintEffect, double>(nameof(Strength), 0.55d);
 
     static TintEffect()
     {
@@ -85,6 +87,9 @@ public sealed class TintEffectFactory :
     ISkiaEffectFactory<TintEffect>,
     ISkiaEffectValueFactory
 {
+    private const int ColorIndex = 0;
+    private const int StrengthIndex = 1;
+
     public Thickness GetPadding(TintEffect effect) => default;
     public Thickness GetPadding(object[] values) => default;
 
@@ -93,8 +98,8 @@ public sealed class TintEffectFactory :
 
     public SKImageFilter? CreateFilter(object[] values, SkiaEffectContext context)
     {
-        var color = (Color)values[0];
-        var strength = (double)values[1];
+        var color = (Color)values[ColorIndex];
+        var strength = (double)values[StrengthIndex];
         var tintMatrix = new[]
         {
             color.R / 255f, 0f, 0f, 0f, 0f,
@@ -164,8 +169,47 @@ See [api-reference.md](api-reference.md) for the full reference. Summary:
 | `SkiaEffectHostContext` | Passed to interactive handlers — carries `Visual`, `Bounds`, normalized position helpers, pointer capture |
 | `SkiaFilterBuilder` | Static helper: `Blur`, `ColorFilter`, `Convolution`, `Pixelate`, `Merge`, `Compose`, `Offset`, `Dilate`, `Erode` |
 | `ColorMatrixBuilder` | Static + fluent builder: `CreateIdentity`, `CreateGrayscale`, `CreateSepia`, `CreateSaturation`, `CreateBrightnessContrast`, `CreateInvert`, `Blend` |
-| `SkiaRuntimeShaderBuilder` | Creates `SkiaShaderEffect` from SkSL source with uniform configuration and optional fallback renderer |
-| `SkiaShaderEffect` | Encapsulates compiled shader + blend mode + fallback. Disposable. |
+| `SkiaRuntimeShaderBuilder` | Creates `SkiaShaderEffect` from SkSL source with uniform configuration, owned resources, and optional fallback renderer |
+| `SkiaShaderEffect` | Encapsulates compiled shader + blend mode + owned resources + fallback. Disposable. |
+| `SkiaShaderImageHandle` | Value-type handle for secondary shader images (immutable-snapshot compatible) |
+| `SkiaShaderImageRegistry` | Registers and acquires `SKImage` instances for multi-input shaders |
+| `SkiaShaderImageLease` | RAII lease keeping a registered `SKImage` alive. Disposable. |
+
+## Secondary Shader Images
+
+Multi-input shader effects can carry extra bitmap inputs through the `SkiaShaderImageHandle` / `SkiaShaderImageRegistry` / `SkiaShaderImageLease` API. The handle is a value type compatible with Effector's immutable snapshot model, while a lease keeps the underlying `SKImage` alive until the `SkiaShaderEffect` is disposed.
+
+### Usage Pattern
+
+```csharp
+// 1. Effect declares a handle property
+public static readonly StyledProperty<SkiaShaderImageHandle> FromImageProperty =
+    AvaloniaProperty.Register<MyTransitionEffect, SkiaShaderImageHandle>(nameof(FromImage));
+
+// 2. Register an Avalonia Bitmap to get a handle
+using var bitmap = CapturePage(...);
+var fromHandle = SkiaShaderImageRegistry.Register(bitmap);
+
+// 3. In the factory, acquire a lease and bind as child shader
+if (SkiaShaderImageRegistry.TryAcquire(effect.FromImage, out var fromLease))
+{
+    return SkiaRuntimeShaderBuilder.Create(
+        sksl,
+        context,
+        configureOwnedChildren: (children, _, ownedResources) =>
+        {
+            var fromShader = fromLease.Image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+            children.Add("fromImage", fromShader);
+            ownedResources.Add(fromShader);
+        },
+        ownedResources: new IDisposable[] { fromLease });
+}
+
+// 4. Release the handle when no longer needed
+SkiaShaderImageRegistry.Release(fromHandle);
+```
+
+The compiz sample uses this path to feed current-page and next-page captures into a single shader for route transitions.
 
 ## Parsing and Animation
 
@@ -186,50 +230,19 @@ The NuGet ships `buildTransitive` targets. Supported switches:
   <EffectorEnabled>true</EffectorEnabled>
   <EffectorStrict>true</EffectorStrict>
   <EffectorVerbose>false</EffectorVerbose>
-  <EffectorSupportedAvaloniaVersion>11.3.12</EffectorSupportedAvaloniaVersion>
+  <EffectorSupportedAvaloniaVersion>12.0.0</EffectorSupportedAvaloniaVersion>
 </PropertyGroup>
 ```
 
 ### Build Constraints
 
 - **Use `-m:1`** (sequential build) for clean solution builds — the self-weaver can race under parallel graph builds
-- Avalonia version is pinned to **11.3.12**
+- Avalonia version is pinned to **12.0.0**
 - Only **Avalonia.Skia** renderer is supported
 
-### Android / Mobile (CRITICAL)
+### Android Patching
 
-Effector's built-in patching targets only cover `$(TargetDir)` and `$(PublishDir)`, but the Android build pipeline bundles assemblies from `obj/.../android/assets/{abi}/`.  This means **Android APKs ship with unpatched `Avalonia.Base.dll`** and any effect will crash with `InvalidCastException` at the first render frame.
-
-**Tracked upstream:** <https://github.com/wieslawsoltes/Effector/issues/3>
-
-Until Effector ships a native fix, the Android head project needs a workaround target:
-
-```xml
-<!-- WORKAROUND for https://github.com/wieslawsoltes/Effector/issues/3
-     Remove this target once Effector ships a native fix. -->
-<Target Name="Effector_PatchAndroidAssemblies"
-        AfterTargets="_PrepareAssemblies"
-        BeforeTargets="_BuildApkEmbed"
-        Condition="'$(EffectorEnabled)' == 'true' and '$(DesignTimeBuild)' != 'true'
-                   and Exists('$(IntermediateOutputPath)android/assets')">
-  <ItemGroup>
-    <_EffectorAndroidAvaloniaBase Include="$(IntermediateOutputPath)android/assets/*/Avalonia.Base.dll" />
-  </ItemGroup>
-  <PatchAvaloniaAssembliesTask
-      AvaloniaBaseAssemblyPath="%(FullPath)"
-      AvaloniaSkiaAssemblyPath="$([System.IO.Path]::Combine('$([System.IO.Path]::GetDirectoryName(%(FullPath)))', 'Avalonia.Skia.dll'))"
-      Strict="$(EffectorStrict)"
-      Verbose="$(EffectorVerbose)"
-      SupportedAvaloniaVersion="$(EffectorSupportedAvaloniaVersion)"
-      Condition="'%(_EffectorAndroidAvaloniaBase.Identity)' != ''" />
-</Target>
-```
-
-iOS likely has a similar issue (assemblies are resolved through a different pipeline), but this has not been tested yet.
-
-```bash
-dotnet build -c Release -m:1 -p:GeneratePackageOnBuild=false
-```
+Effector now natively patches Android ABI asset copies after `_PrepareAssemblies`, so packaged APKs use the patched Avalonia binaries automatically. No manual workaround target is required.
 
 ### NativeAOT
 
@@ -238,6 +251,10 @@ Effector supports `PublishAot=true`. The MSBuild targets patch ILC input assembl
 ```bash
 dotnet publish -c Release -r osx-arm64 -p:PublishAot=true -p:StripSymbols=false
 ```
+
+### Direct Runtime Shaders
+
+On supported SkiaSharp 3.x runtimes, direct runtime shaders are enabled by default. Set `EFFECTOR_ENABLE_DIRECT_RUNTIME_SHADERS=false` to force the fallback path when needed; fallback renderers are still used automatically when shader compilation fails or the active draw path cannot execute runtime shaders.
 
 ## Common Patterns
 
@@ -270,6 +287,6 @@ return SkiaFilterBuilder.Convolution(3, 3, kernel);
 ## Guides
 
 - [Filter Effects](filter-effects.md) — `SKImageFilter`-based effects (tint, grayscale, blur, glow, pixelate, sharpen)
-- [Shader Effects](shader-effects.md) — Runtime SkSL shaders (scanline, grid, spotlight)
+- [Shader Effects](shader-effects.md) — Runtime SkSL shaders, secondary shader images, compiz transitions
 - [Interactive Effects](interactive-effects.md) — Pointer-driven effects (pointer spotlight, reactive grid, water ripple)
 - [API Reference](api-reference.md) — Complete type reference and helper utilities
