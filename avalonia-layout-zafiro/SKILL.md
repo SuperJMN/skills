@@ -34,8 +34,8 @@ Before writing any AXAML layout, ask yourself:
 | `themes.md` | Theme organization and shared styles | Setting up or refining app themes |
 | `containers.md` | Semantic containers (`HeaderedContainer`, `EdgePanel`, `Card`) | Structuring views and layouts |
 | `icons.md` | Icon usage with `IconExtension` and `IconOptions` | Adding and customizing icons |
-| `behaviors.md` | `Xaml.Interaction.Behaviors` and avoiding Converters | Implementing complex interactions |
-| `components.md` | Generic components and avoiding nesting | Creating reusable UI elements |
+| `behaviors.md` | `Xaml.Interaction.Behaviors`, avoiding Converters, `DragDeltaBehavior` | Implementing complex interactions, drag-to-move |
+| `components.md` | Generic components, `FlowEditor`, `PropertyGrid` | Creating reusable UI elements, node editors, inspector panels |
 | `scripts/avalonia_style_probe.py` | Style/resource scanner with computed-style estimate | Before applying local visual attributes |
 
 ---

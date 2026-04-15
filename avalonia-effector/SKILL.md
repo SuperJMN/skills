@@ -284,6 +284,18 @@ var kernel = new[] { 0f, -s, 0f, -s, 1f + 4f * s, -s, 0f, -s, 0f };
 return SkiaFilterBuilder.Convolution(3, 3, kernel);
 ```
 
+## ⚠️ Known Issues
+
+### PackageReference → ProjectReference causes InvalidCastException
+
+**Never replace the Effector `PackageReference` with a `ProjectReference`** unless you also manually wire up the MSBuild build targets.
+
+The NuGet package ships `buildTransitive` targets that perform **build-time IL weaving** (Avalonia assembly patching via Mono.Cecil). When you switch to a `ProjectReference`, those build targets are **not delivered transitively**, so the IL weaving step is silently skipped. At runtime this causes an `InvalidCastException` because the immutable snapshot types were never injected into the effect classes.
+
+**Symptoms:** `InvalidCastException` at runtime when applying any effect, even though the project compiles without errors.
+
+**Fix:** Always reference Effector via `PackageReference`. If you must use a `ProjectReference` (e.g., for debugging Effector itself), you need to manually import the Effector `.targets` file in your project so the weaving and patching steps still execute.
+
 ## Guides
 
 - [Filter Effects](filter-effects.md) — `SKImageFilter`-based effects (tint, grayscale, blur, glow, pixelate, sharpen)

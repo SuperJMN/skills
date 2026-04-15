@@ -33,3 +33,45 @@ Only use them when the conversion is purely visual and highly reusable across di
 ## 🧩 Simplified Interactions
 
 If you find yourself needing a complex converter or behavior, consider if the component can be simplified or if the data model can be adjusted to make the view binding more direct.
+
+---
+
+## 🖱️ DragDeltaBehavior — Draggable Elements
+
+`DragDeltaBehavior` enables drag-to-move on any `Control`, binding position deltas to `Left`/`Top` properties. Used internally by `FlowEditor` for draggable nodes, but available for any custom canvas-based layout.
+
+**Namespace:** `Zafiro.Avalonia.Behaviors`
+**Source:** `src/Zafiro.Avalonia/Behaviors/DragDeltaBehavior.cs`
+
+### Properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Left` | `double` | 0 | Two-way bound X position |
+| `Top` | `double` | 0 | Two-way bound Y position |
+| `DragButton` | `MouseButton` | `Left` | Which mouse button initiates drag |
+| `DragThreshold` | `double` | 3.0 | Pixel distance before drag starts (prevents accidental drags) |
+| `RoutingStrategy` | `RoutingStrategies` | `Tunnel` | Event routing strategy |
+
+### Key Features
+
+- **Threshold-based activation** — Drag only starts after moving beyond `DragThreshold` pixels, preventing accidental drags during clicks.
+- **Pointer capture** — Captures the pointer on drag start and releases on pointer up or capture lost.
+- **Coordinate system** — Uses the first visual ancestor as the coordinate reference for delta calculations.
+- **Rx pipeline** — Entirely reactive: `PointerPressed → PointerMoved (until Released)` with `SelectMany` for drag sessions.
+
+### Usage in AXAML
+
+```xml
+<ListBoxItem>
+    <Interaction.Behaviors>
+        <behaviors:DragDeltaBehavior Left="{Binding Left}"
+                                     Top="{Binding Top}"
+                                     DragThreshold="5"
+                                     x:DataType="local:IHaveLocation" />
+    </Interaction.Behaviors>
+</ListBoxItem>
+```
+
+### Note
+In `FlowEditor`, this behavior is automatically applied via the `FlowListBoxItem` ControlTheme — no manual setup required.
