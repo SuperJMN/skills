@@ -28,8 +28,15 @@ Minimal, repeatable workflow for Avalonia + Zafiro changes, with verification th
 1. Search for existing patterns or helpers before adding new ones.
 2. Implement using Zafiro conventions and functional-reactive MVVM.
 3. If a new style file is added, register it in `App.axaml` or `Styles.axaml`.
-4. Add or update tests when behavior changes, following Khorikov principles.
+4. Add or update tests when behavior changes, following Khorikov principles and the XAML test-scope rule below.
 5. Verify with the standard .NET commands.
+
+## XAML Test Scope
+
+- Do not create tests that parse AXAML/XAML or assert markup/layout structure by default.
+- Only add or expand AXAML/XAML layout tests when they are strictly necessary for the user's requested task.
+- Before adding such a test, ask the user whether they want that layout test and wait for confirmation.
+- Prefer ViewModel/service behavior tests, compiled build validation, MCP/runtime UI checks, or focused integration tests over brittle markup-shape assertions.
 
 ## XAML Critical Checks
 

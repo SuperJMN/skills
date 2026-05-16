@@ -39,7 +39,7 @@ Activate when the user:
 
 ## Prerequisites
 
-- .NET 8.0 SDK or later (net8.0 and net10.0 are supported)
+- **.NET 10 SDK** — required to use `dnx` (the recommended way to run the tool without installing it). The Avalonia app itself supports net8.0 and net10.0.
 - An Avalonia 12.x application
 - An MCP-capable client (VS Code with GitHub Copilot, Claude Desktop, etc.)
 
@@ -93,33 +93,61 @@ To explicitly stop the diagnostic server (e.g., before app shutdown):
 DiagnosticExtensions.StopMcpDiagnostics();
 ```
 
-## Step 2 — Install the MCP Tool
+## Step 2 — No Installation Required (dnx)
 
-Install the .NET global tool:
-
-```bash
-dotnet tool install -g Zafiro.Avalonia.Mcp.Tool
-```
-
-To update an existing installation:
+With **.NET 10 SDK**, no manual installation is needed. The `dnx` command (new in .NET 10) checks NuGet for the latest version **on every invocation** and downloads it automatically if needed — you always get the newest release without any manual update step.
 
 ```bash
-dotnet tool update -g Zafiro.Avalonia.Mcp.Tool
+# Verify you have .NET 10+
+dotnet --version
 ```
 
-Verify it's installed:
+The MCP client config (Step 3) uses `dnx` directly — there is nothing else to do.
 
-```bash
-dotnet tool list -g | grep zafiro-avalonia-mcp
-```
-
-The tool command name is **`zafiro-avalonia-mcp`**.
+> **Alternative (for .NET 8/9 users):** Install the global tool manually:
+> ```bash
+> dotnet tool install -g Zafiro.Avalonia.Mcp.Tool
+> # Then replace "dnx" with "zafiro-avalonia-mcp" and remove the args in Step 3.
+> dotnet tool update -g Zafiro.Avalonia.Mcp.Tool  # to update
+> ```
 
 ## Step 3 — Configure the MCP Client
 
-The tool uses **stdio transport** (reads JSON-RPC from stdin, writes to stdout). Configure your MCP client as follows:
+The tool uses **stdio transport** (reads JSON-RPC from stdin, writes to stdout). With .NET 10, use `dnx` — no prior installation needed.
 
-### VS Code (GitHub Copilot) — `.vscode/mcp.json`
+### GitHub Copilot
+
+GitHub Copilot uses **two separate config files** depending on the surface:
+
+**Copilot CLI** (`~/.copilot/mcp.json`):
+
+```json
+{
+  "servers": {
+    "zafiro-avalonia-mcp": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["Zafiro.Avalonia.Mcp.Tool", "--yes"]
+    }
+  }
+}
+```
+
+**Copilot coding agent / Copilot Chat** (`~/.copilot/mcp-config.json`):
+
+```json
+{
+  "mcpServers": {
+    "zafiro-avalonia-mcp": {
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["Zafiro.Avalonia.Mcp.Tool", "--yes"]
+    }
+  }
+}
+```
+
+### VS Code (GitHub Copilot extension) — `.vscode/mcp.json`
 
 Create or update `.vscode/mcp.json` in the workspace root:
 
@@ -127,8 +155,9 @@ Create or update `.vscode/mcp.json` in the workspace root:
 {
   "servers": {
     "zafiro-avalonia-mcp": {
-      "command": "zafiro-avalonia-mcp",
-      "args": []
+      "type": "stdio",
+      "command": "dnx",
+      "args": ["Zafiro.Avalonia.Mcp.Tool", "--yes"]
     }
   }
 }
@@ -142,8 +171,8 @@ Add to the `mcpServers` section:
 {
   "mcpServers": {
     "zafiro-avalonia-mcp": {
-      "command": "zafiro-avalonia-mcp",
-      "args": []
+      "command": "dnx",
+      "args": ["Zafiro.Avalonia.Mcp.Tool", "--yes"]
     }
   }
 }
@@ -152,8 +181,8 @@ Add to the `mcpServers` section:
 ### Generic MCP Client
 
 Any MCP client that supports stdio transport can use:
-- **Command:** `zafiro-avalonia-mcp`
-- **Arguments:** none
+- **Command:** `dnx`
+- **Arguments:** `Zafiro.Avalonia.Mcp.Tool`, `--yes`
 - **Transport:** stdio
 
 ## Step 4 — Verify the Setup
@@ -237,8 +266,11 @@ And conditionally include the package in the `.csproj`:
 
 | Issue | Solution |
 |---|---|
+| `spawn zafiro-avalonia-mcp ENOENT` | The config still uses the old command name. Replace `"command": "zafiro-avalonia-mcp"` with `"command": "dnx"` and add `"args": ["Zafiro.Avalonia.Mcp.Tool", "--yes"]` in all config files (`~/.copilot/mcp-config.json`, `~/.copilot/mcp.json`, `.vscode/mcp.json`, etc.). |
 | `list_apps` returns empty | Ensure the Avalonia app is running and has `UseMcpDiagnostics()` in the builder chain. Check that discovery files exist in `{TEMP}/zafiro-avalonia-mcp/`. |
-| Tool not found after install | Ensure `~/.dotnet/tools` is in your PATH. Run `export PATH="$HOME/.dotnet/tools:$PATH"` or restart your terminal. |
+| `dnx` not found | Requires .NET 10 SDK. Run `dotnet --version` to verify. Fall back to global install if using .NET 8/9. |
+| New release not picked up yet | NuGet HTTP responses are briefly cached. Force an immediate check: `dnx --no-http-cache Zafiro.Avalonia.Mcp.Tool --yes` |
+| Want a specific version | Pin it explicitly: `dnx Zafiro.Avalonia.Mcp.Tool@1.2.3 --yes` |
 | Connection drops | The app may have exited. Discovery files from crashed apps may linger — delete stale `.json` files from the discovery directory. |
 | TypeLoadException | Version mismatch — `Zafiro.Avalonia.Mcp.AppHost` targets Avalonia 12.x. It is not compatible with Avalonia 11.x apps. |
 | Logging corrupts stdio | The MCP tool redirects all logging to stderr. If you see JSON parse errors, ensure nothing else writes to stdout. |
@@ -246,8 +278,8 @@ And conditionally include the package in the `.csproj`:
 ## Rules
 
 1. **Always add the NuGet package first**, then the `UseMcpDiagnostics()` call. Never just one without the other.
-2. **Always install the global tool** — the MCP system won't work without it.
+2. **Use `dnx` to invoke the tool** (requires .NET 10 SDK) — no global install needed. Fall back to `dotnet tool install -g` only for .NET 8/9.
 3. **Always configure the MCP client** — the tool does nothing on its own; it needs an MCP client to invoke it.
 4. **Don't add `UseMcpDiagnostics()` to library projects** — only add it to the executable Desktop project that contains the `AppBuilder`.
 5. **Verify the setup works** by running the app and checking `list_apps` returns it.
-6. **If the project already has the AppHost package and `UseMcpDiagnostics()` call**, skip Steps 1. Only install the tool and configure the client.
+6. **If the project already has the AppHost package and `UseMcpDiagnostics()` call**, skip Step 1. Only configure the MCP client.

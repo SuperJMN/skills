@@ -17,6 +17,7 @@ This skill provides a set of best practices and patterns for creating ViewModels
 6.  **Collection Aggregates**: When a value is derived from a collection (totals/counts), use DynamicData aggregation (`Sum`, `Count`) on the change set and expose it as `IObservable<T>`; bind in XAML with `^`. Avoid `AutoRefresh` unless item properties change.
 7.  **View-Triggered Initial Load**: Prefer triggering initial `Load`/`Refresh` commands from the Avalonia view (`LoadedTrigger` + `InvokeCommandAction`) instead of auto-loading in the ViewModel constructor. This aligns with UI lifecycle, avoids constructor side effects, and improves testability. Only auto-load in the ViewModel when it must work headlessly (without a view).
 8.  **Derived Read-Only State**: When a property is derived from other state and should not be set directly, model it as `IObservable<T>` projected with `Select` instead of mutating a backing property from `Subscribe` or helper methods. Bind in XAML with `^`.
+9.  **Prerequisite-Gated Commands**: When a view command needs a runtime prerequisite (wallet loaded, connected API client, authenticated session), model that prerequisite as a context service with `Require()` returning `Task<Maybe<Result<TReady>>>`; chain the command body with `Bind`, keep cancellation quiet, and route failures through `HandleErrorsWith`.
 
 ## Guides
 
