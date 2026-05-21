@@ -69,7 +69,6 @@ Skills for coding, testing, debugging, and code review:
 - `@systematic-debugging` - Debug systematically, not randomly
 - `@webapp-testing` - Test web apps with Playwright
 - `@receiving-code-review` - Handle code review feedback properly
-- `@requesting-code-review` - Request code reviews before merging
 - `@finishing-a-development-branch` - Complete dev branches (merge, PR, cleanup)
 - `@subagent-driven-development` - Coordinate multiple AI agents for parallel tasks
 

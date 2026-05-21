@@ -427,7 +427,6 @@ This is great because [explain why]
 
 ## Related Skills
 
-- `@requesting-code-review` - Prepare code for review
 - `@receiving-code-review` - Handle review feedback
 - `@systematic-debugging` - Debug issues found in review
 - `@test-driven-development` - Ensure code has tests
