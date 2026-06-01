@@ -149,6 +149,7 @@ public IEnhancedCommand SaveCommand { get; }
 - [Avalonia, Zafiro & Reactive Rules](avalonia-reactive-rules.md): Specific guidelines for UI, Zafiro integration, and DynamicData pipelines.
 - [Zafiro Shortcuts](zafiro-shortcuts.md): Concise mappings for common Rx/Zafiro operations.
 - [Common Patterns](patterns.md): Advanced patterns like `RefreshableCollection` and Validation.
+- [Hierarchical Shell Sections](references/hierarchical-shell.md): Attribute-first section trees, `IHierarchicalShell` wiring, scoped navigation, and local Zafiro source iteration without submodules.
 
 ## Xaml.Behaviors (Avalonia)
 
