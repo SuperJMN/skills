@@ -23,6 +23,9 @@ RESOURCE_EXPR_RE = re.compile(r"\{(?:DynamicResource|StaticResource)\s+([^\s\}]+
 AVARES_RE = re.compile(r"^avares://[^/]+/(.+)$", re.IGNORECASE)
 INCLUDE_TAGS = {"ResourceInclude", "MergeResourceInclude", "StyleInclude"}
 MARKUP_EXTS = (".axaml", ".xaml")
+TYPE_SELECTOR_RE = re.compile(
+    r"^(?:(?:[A-Za-z_][A-Za-z0-9_-]*)(?:[|:]))?([A-Za-z_][A-Za-z0-9_]*)"
+)
 
 
 def strip_ns(tag: str) -> str:
@@ -52,24 +55,30 @@ def parse_selector(selector: str) -> Tuple[Optional[str], Set[str], bool, int]:
     term = selector_terminal(selector)
     if not term:
         return None, set(), False, -1
+    if term.startswith("^"):
+        return None, set(), False, -1
 
+    type_name = None
+    is_wrapper = re.match(r"^:is\(([^)]+)\)", term)
+    if is_wrapper:
+        wrapped_type = is_wrapper.group(1).strip()
+        type_match = TYPE_SELECTOR_RE.match(wrapped_type)
+        type_name = type_match.group(1) if type_match else wrapped_type.split(".")[-1]
+        term = term[is_wrapper.end() :]
+    else:
+        base = TYPE_SELECTOR_RE.match(term)
+        if base:
+            type_name = base.group(1)
+            term = term[base.end() :]
+
+    pseudo_functions = re.findall(r":[A-Za-z0-9_-]+\([^)]*\)", term)
+    term = re.sub(r":[A-Za-z0-9_-]+\([^)]*\)", "", term)
     pseudos = re.findall(r":[A-Za-z0-9_-]+", term)
     term = re.sub(r":[A-Za-z0-9_-]+", "", term)
     term = re.sub(r"#[A-Za-z0-9_-]+", "", term)
 
-    type_name = None
-    is_wrapper = re.match(r"^:is\(([A-Za-z0-9_\.]+)\)", term)
-    if is_wrapper:
-        type_name = is_wrapper.group(1).split(".")[-1]
-        term = term[is_wrapper.end() :]
-    else:
-        base = re.match(r"^[A-Za-z_][A-Za-z0-9_\.]*", term)
-        if base:
-            type_name = base.group(0).split(".")[-1]
-            term = term[base.end() :]
-
     classes = set(re.findall(r"\.([A-Za-z0-9_-]+)", term))
-    specificity = (100 if type_name else 0) + (10 * len(classes)) + len(pseudos)
+    specificity = (100 if type_name else 0) + (10 * len(classes)) + len(pseudos) + len(pseudo_functions)
     return type_name, classes, True, specificity
 
 
