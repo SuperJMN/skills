@@ -1,3 +1,28 @@
 # Local-only: disabled skills for lean configuration
 # These skills are kept in the repository but disabled locally
 .disabled/
+
+# Skills managed by `npx skills` (recorded in .skill-lock.json).
+# Not vendored on purpose: run `npx skills` to reinstall them from the lockfile.
+/ask-matt/
+/code-review/
+/codebase-design/
+/diagnosing-bugs/
+/domain-modeling/
+/find-skills/
+/grill-me/
+/grill-with-docs/
+/grilling/
+/handoff/
+/implement/
+/improve-codebase-architecture/
+/prototype/
+/research/
+/setup-matt-pocock-skills/
+/tdd/
+/teach/
+/to-spec/
+/to-tickets/
+/triage/
+/wayfinder/
+/writing-great-skills/
