@@ -1,65 +1,73 @@
 ---
 name: dotnet-avalonia-workflow
-description: Use when working on Avalonia UI apps with the Zafiro toolkit and needing the standard .NET development workflow and verification steps
+description: Use for changes to Avalonia UI behavior, AXAML, controls, styles, bindings, or view lifecycle in a .NET app that uses Zafiro. Do not trigger merely because the repository is an Avalonia app, or for domain services, shared interfaces, backend code, test-only edits, or general C# refactors with no UI effect.
 ---
 
-# .NET Avalonia Workflow (Zafiro)
+# .NET Avalonia workflow
 
-## Overview
+Keep this workflow proportional to the UI change.
 
-Minimal, repeatable workflow for Avalonia + Zafiro changes, with verification that fits .NET projects.
+## Scope gate
 
-## When to Use
+Establish that the requested change affects at least one UI concern:
 
-- Modifying Avalonia UI apps using Zafiro.
-- Editing XAML styles, lookless controls, or ViewModels.
-- Preparing to finish a change and needing verification steps.
+- AXAML, styles, themes, resources, or bindings;
+- an Avalonia control or behavior;
+- view or ViewModel lifecycle as observed by the UI;
+- navigation or interaction whose visual/runtime behavior must be validated.
 
-## Required Skills
+For a shared-interface cleanup, domain/service refactor, backend change, or
+test-only task with no UI effect, stop using this skill and follow the
+repository's normal .NET workflow.
 
-- **REQUIRED SUB-SKILL:** avalonia-zafiro-development
-- **REQUIRED SUB-SKILL:** csharp-development-zafiro
-- **REQUIRED SUB-SKILL:** dotnet-testing-khorikov
-- **REQUIRED SUB-SKILL:** avalonia-layout-zafiro (when layout changes)
-- **REQUIRED SUB-SKILL:** avalonia-viewmodels-zafiro (when ViewModels or wizards change)
+## Load references conditionally
 
-## Core Workflow
+- Use `avalonia-zafiro-development` when choosing or changing a Zafiro/Avalonia
+  control, behavior, style, or reactive UI pattern.
+- Use `avalonia-layout-zafiro` only for layout or responsive-design changes.
+- Use `avalonia-viewmodels-zafiro` only when ViewModel lifecycle, commands, or
+  wizard behavior changes.
+- Use `csharp-development-zafiro` only for Zafiro-specific C# conventions not
+  already established by the repository.
+- Use `dotnet-testing-khorikov` only after deciding that changed observable
+  behavior needs a new or modified test.
 
-1. Search for existing patterns or helpers before adding new ones.
-2. Implement using Zafiro conventions and functional-reactive MVVM.
-3. If a new style file is added, register it in `App.axaml` or `Styles.axaml`.
-4. Add or update tests when behavior changes, following Khorikov principles and the XAML test-scope rule below.
-5. Verify with the standard .NET commands.
+Repository instructions and adjacent working code override generic guidance.
 
-## XAML Test Scope
+## Workflow
 
-- Do not create tests that parse AXAML/XAML or assert markup/layout structure by default.
-- Only add or expand AXAML/XAML layout tests when they are strictly necessary for the user's requested task.
-- Before adding such a test, ask the user whether they want that layout test and wait for confirmation.
-- Prefer ViewModel/service behavior tests, compiled build validation, MCP/runtime UI checks, or focused integration tests over brittle markup-shape assertions.
+1. Read the task contract and inspect the existing UI path, styles, resources,
+   and nearby tests.
+2. Implement the smallest change that satisfies the contract. Reuse established
+   controls and resources unless the task intentionally changes the pattern.
+3. Choose proof that matches the change:
+   - behavior change: focused test at an observable seam;
+   - visual or interaction change: build plus runtime/MCP inspection when
+     available;
+   - binding or resource change: compiled build plus focused runtime inspection;
+   - compile-time API cleanup with no UI behavior change: migrate consumers and
+     build; do not add a negative reflection test unless the API surface itself
+     is an explicit durable requirement and the repository has a suitable
+     architecture/API test suite.
+4. Run the narrowest relevant validation first, then the affected project or
+   solution gates required by the repository.
+5. Inspect the final diff for unrelated UI, test, package, and formatting
+   changes.
 
-## XAML Critical Checks
+## XAML testing
 
-- Use `EnhancedButton` instead of `Button`.
-- Add `x:DataType` for compiled bindings.
-- Use `Design.PreviewWith` in style and theme files.
-- Register new `.axaml` files in the root style file.
-- Use `[ControlName].axaml.cs` for lookless controls.
+Prefer observable ViewModel/service behavior, compiled binding validation, and
+runtime UI evidence. Add tests that parse AXAML or assert markup shape only when
+the markup structure itself is the requested durable contract.
 
-## Verification
+## Publication boundary
 
-- `dotnet build`
-- `dotnet test` (if tests exist)
-- `dotnet format` (if configured)
+This skill does not authorize creating branches, commits, pushes, pull requests,
+merges, package changes, or history rewrites. Perform those actions only when
+the user explicitly requests them and use the dedicated publication workflow.
 
-## Default PR Workflow (GitVersion)
+## Completion
 
-When working on features in repositories that use GitVersion, follow this default workflow:
-
-1. Create a branch for the feature.
-2. Implement the feature.
-3. Push changes.
-4. Push to master (one or more commits, depending on the flow).
-5. Create a PR with an explanatory message excluding boilerplate, focusing on the global idea and important future details.
-6. Wait for CI to pass.
-7. Squash merge the PR using GitVersion semver: The squash merge commit message MUST end with `+semver:[major|minor|fix]` so GitVersion correctly bumps the version.
+The task is complete when the requested UI behavior is demonstrated, affected
+validation passes, the diff is scoped, and every new test protects an observable
+requirement that could regress.

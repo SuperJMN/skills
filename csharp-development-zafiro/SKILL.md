@@ -1,27 +1,39 @@
 ---
 name: csharp-development-zafiro
-description: General C# development standards and functional programming patterns for Zafiro projects.
+description: Use for C# changes inside Zafiro ecosystem repositories when their established conventions require Zafiro-specific naming or functional patterns. Do not trigger for arbitrary .NET code that merely consumes a Zafiro library.
 ---
 
 # C# Development Standards (Zafiro)
 
 This skill encompasses the general C# coding standards and functional programming patterns used across all Zafiro projects.
 
+Repository instructions, `.editorconfig`, existing public contracts, and
+adjacent code take precedence. Preserve an established convention rather than
+renaming or restructuring unrelated code to match this reference.
+
 ## Naming & Coding Standards
 
 - **Explicit Names**: Favor clarity over cleverness.
-- **Async Suffix**: Do **NOT** use the `Async` suffix in method names, even if they return `Task`.
-- **Private Fields**: Do **NOT** use the `_` prefix for private fields.
+- **Async Suffix**: Follow the repository and API being implemented. Current
+  Zafiro sources contain both domain-specific names and conventional `Async`
+  suffixes; preserve inherited names and adjacent public API patterns.
+- **Private Fields**: Follow the repository's current naming rules and adjacent
+  code. Zafiro and Zafiro.Avalonia commonly use `_camelCase`; do not mass-rename
+  existing fields to impose a different convention.
 - **Static State**: Avoid static state unless explicitly justified and documented.
 - **Method Design**: Keep methods small, expressive, and with low cyclomatic complexity.
 
 ## Functional Programming & Error Handling
 
-Zafiro relies heavily on **CSharpFunctionalExtensions** for clean, predictable flow control.
+Use **CSharpFunctionalExtensions** only when it is already an approved
+dependency and the surrounding code uses it for the same contract. This skill
+does not authorize adding the package.
 
 - **Result & Maybe**: Use these types for flow control and error handling instead of nulls or exceptions.
 - **Exceptions**: Reserved strictly for truly exceptional, unrecoverable situations.
-- **Boundaries**: Never allow exceptions to leak across architectural boundaries.
+- **Boundaries**: Preserve the boundary's established error contract. Translate
+  exceptions into `Result` only where that is the verified contract, and never
+  swallow unexpected failures.
 
 ### Prefer Functional Mapping over Explicit Checks
 

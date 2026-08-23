@@ -1,6 +1,6 @@
 # Skills Directory
 
-**Welcome to the skills folder!** This is where all 179+ specialized AI skills live.
+**Welcome to the skills folder!** This is where the available specialized AI skills live.
 
 ## 🤔 What Are Skills?
 
@@ -42,7 +42,7 @@ Use the `@` symbol followed by the skill name:
 or
 
 ```
-@stripe-integration add payment processing to my app
+@diagnosing-bugs investigate this intermittent test failure
 ```
 
 ### Step 3: The AI becomes an expert
@@ -66,7 +66,7 @@ Skills for visual design, UI/UX, and artistic creation:
 ### Development & Engineering
 Skills for coding, testing, debugging, and code review:
 - `@test-driven-development` - Write tests before implementation (TDD)
-- `@systematic-debugging` - Debug systematically, not randomly
+- `@diagnosing-bugs` - Diagnose failures through a tight observable loop
 - `@webapp-testing` - Test web apps with Playwright
 - `@receiving-code-review` - Handle code review feedback properly
 - `@finishing-a-development-branch` - Complete dev branches (merge, PR, cleanup)
@@ -114,7 +114,7 @@ ls skills/ | grep "keyword"
 ```
 
 ### Method 3: Check the main README
-See the [main README](../README.md) for the complete list of all 179+ skills organized by category.
+See the [main README](../README.md) for the complete list of skills organized by category.
 
 ---
 
@@ -122,7 +122,7 @@ See the [main README](../README.md) for the complete list of all 179+ skills org
 
 **For beginners:**
 - `@brainstorming` - Design before coding
-- `@systematic-debugging` - Fix bugs methodically
+- `@diagnosing-bugs` - Reproduce and diagnose bugs methodically
 - `@git-pushing` - Commit with good messages
 
 **For developers:**

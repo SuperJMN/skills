@@ -1,6 +1,6 @@
 ---
 name: avalonia-layout-zafiro
-description: Guidelines for modern Avalonia UI layout using Zafiro.Avalonia, emphasizing shared styles, generic components, and avoiding XAML redundancy.
+description: Use when an Avalonia/Zafiro task changes layout or responsive behavior and needs guidance on panels, styles, or reusable visual structure. Apply only after inspecting the target application's supported form factors and established resource patterns.
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
@@ -9,16 +9,29 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 > Master modern, clean, and maintainable Avalonia UI layouts.
 > **Focus on semantic containers, shared styles, and minimal XAML.**
 
-## 🚨 RULE ZERO: All Layouts Are Responsive by Default
+## Scope first
 
-**Every view, page, or component you create MUST use responsive panels.** This is not optional. Zafiro.Avalonia targets Desktop, Mobile, and Browser — a layout that only works at one size is a bug.
+Design for the form factors and resizing contract the target application
+actually supports. Responsive panels are required when the task or application
+supports materially different sizes; a fixed diagnostic window or
+single-form-factor control does not need speculative responsive machinery.
 
-Before writing any AXAML layout, ask yourself:
-1. **Is this a toolbar / bar / row of items?** → Use `FlexPanel` (not StackPanel).
-2. **Is this a grid of content that should reflow?** → Use `BootstrapGridPanel` with per-breakpoint spans (not Grid/UniformGrid).
-3. **Is this app-level structure?** → Use `SemanticPanel` or `BlueprintPanel`.
+Before writing AXAML, inspect:
 
-**Read `responsive.md` before any layout work.** It contains the complete reference.
+- adjacent layouts and the application's declared targets;
+- existing breakpoints, panels, typography classes, and resources;
+- the runtime sizes that acceptance or design artifacts require.
+
+Then choose the smallest panel that satisfies the verified contract:
+
+1. For a row that needs wrapping, growth, shrinkage, or automatic spacing,
+   consider `FlexPanel`.
+2. For content that must reflow across breakpoints, consider
+   `BootstrapGridPanel` with per-breakpoint spans.
+3. For app-level regions whose semantics match their verified contracts,
+   consider `SemanticPanel` or `BlueprintPanel`.
+
+Read `responsive.md` when the layout must adapt to materially different sizes.
 
 ## 🎯 Selective Reading Rule
 
@@ -30,7 +43,7 @@ Before writing any AXAML layout, ask yourself:
 
 | File | Description | When to Read |
 |------|-------------|--------------|
-| `responsive.md` | **Responsive layout: FlexPanel, BootstrapGridPanel, nesting, panel selection, responsive typography** | **Any layout that must adapt to different screen sizes (ALWAYS read this first)** |
+| `responsive.md` | **Responsive layout: FlexPanel, BootstrapGridPanel, nesting, panel selection, responsive typography** | **Read when the layout must adapt to materially different sizes** |
 | `themes.md` | Theme organization and shared styles | Setting up or refining app themes |
 | `containers.md` | Semantic containers (`HeaderedContainer`, `EdgePanel`, `Card`) | Structuring views and layouts |
 | `icons.md` | Icon usage with `IconExtension` and `IconOptions` | Adding and customizing icons |
@@ -49,14 +62,20 @@ For a real-world example, refer to the **Angor** project:
 
 ## ✅ Checklist for Clean Layouts
 
-- [ ] **Responsive by default?** Used `FlexPanel`/`BootstrapGridPanel` instead of fixed Grid/StackPanel? (See `responsive.md`)
-- [ ] **Responsive typography?** Used `Window.Compact` class toggle for mobile font sizes? Never `ContainerQuery` on MainWindow for global typography? (See `responsive.md` Trick 5)
-- [ ] **Mobile-first breakpoints?** Set `Col` (base) first, then override with `ColMd`, `ColLg`, etc.?
+- [ ] **Responsive contract covered?** When materially different sizes are
+      supported, used an appropriate responsive panel and verified the required
+      breakpoints? (See `responsive.md`)
+- [ ] **Responsive typography justified?** When compact/mobile typography is
+      required, followed the application's established size-class pattern? (See
+      `responsive.md` Trick 5)
+- [ ] **Breakpoint defaults correct?** For `BootstrapGridPanel`, set the base
+      `Col` first, then override only the required breakpoints?
 - [ ] **FlexPanel for toolbars?** Used `Grow`/`Shrink`/`MarginLeftAuto` instead of fixed StackPanel?
 - [ ] **Used semantic containers?** (e.g., `HeaderedContainer` instead of `Border` with manual header)
 - [ ] **Used `HeaderedContainer` for title+body cards?** If a block is "header + content", prefer `HeaderedContainer` with `Header`, `Content`, `HeaderClasses`, `ContentClasses`.
 - [ ] **Avoided redundant properties?** Use shared styles in `axaml` files.
-- [ ] **Scanned effective styles first?** Run `scripts/avalonia_style_probe.py` before adding local attributes.
+- [ ] **Effective style established?** Inspected the resource graph and, when
+      resolution remained ambiguous, ran `scripts/avalonia_style_probe.py`?
 - [ ] **Minimized nesting?** Flatten layouts using `EdgePanel` or generic components.
 - [ ] **Icons via extension?** Use `{Icon fa-name}` and `IconOptions` for styling.
 - [ ] **Behaviors over code-behind?** Use `Interaction.Behaviors` for UI-logic.
@@ -70,7 +89,8 @@ For a real-world example, refer to the **Angor** project:
 
 **DON'T:**
 
- - Use hardcoded colors or sizes (literals) in views.
+ - Use hardcoded colors, or repeat design dimensions locally when the project
+   already provides the corresponding token or resource.
  - **Use fixed Grid/StackPanel for layouts that should adapt to screen size.** Use `BootstrapGridPanel` or `FlexPanel` instead.
  - **Use `UniformGrid Columns="3"` for cards.** Use `BootstrapGridPanel` with per-breakpoint spans.
  - **Use `StackPanel Orientation="Horizontal"` for toolbars.** Use `FlexPanel` with `Wrap="Wrap"`.
@@ -166,9 +186,12 @@ For stateful visuals (hover, selected, focus, pressed):
 </Style>
 ```
 
-## 🚨 Mandatory Preflight: Style Scan Before Local Attributes
+## Style preflight for ambiguous changes
 
-Before touching any local visual property (`Background`, `Foreground`, `FontSize`, `Padding`, etc.), the agent must inspect the project's style/resource graph and estimate the final computed properties for the target control.
+Before adding a local visual property, inspect nearby styles and resources.
+Run the style probe when inheritance, selector order, or resource resolution is
+unclear; direct local edits that follow an established adjacent pattern do not
+need a ceremonial probe.
 
 Use:
 ```bash
@@ -185,7 +208,7 @@ Resolution mode:
 - Use `--scan-all` only for exploratory scans (less faithful to runtime).
 
 Rules:
-- **Always run the probe first** when styling Avalonia XAML.
+- Run the probe when static inspection cannot establish the effective style.
 - **Do not add local attributes** unless the probe output shows the property is not already set as needed.
 - If a local override is still needed, keep it minimal and explain why shared style/theme could not cover it.
 

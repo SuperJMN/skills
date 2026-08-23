@@ -11,7 +11,9 @@ Use this skill to write, review, or refactor .NET tests according to Vladimir Kh
 
 This skill is not about maximizing coverage or isolating every class. It is about testing meaningful observable behavior with the least brittle test that gives confidence.
 
-Default stack, unless the repository already differs: xUnit, FluentAssertions, and Moq only when a mock is justified.
+Use the repository's established test framework, assertions, and doubles.
+This skill does not authorize adding xUnit, FluentAssertions, Moq, or any other
+package; new dependencies require the repository's normal approval.
 
 ## Use When
 
@@ -30,16 +32,18 @@ Default stack, unless the repository already differs: xUnit, FluentAssertions, a
 
 ## Agent Workflow
 
-1. Inspect existing test projects, naming, fixtures, builders, assertions, and packages.
-2. Identify the behavior under test in domain terms.
-3. Classify the test: unit, integration, or end-to-end.
-4. Classify dependencies: in-memory, managed, unmanaged, or volatile.
-5. Prefer real in-memory collaborators owned by the codebase.
-6. Use mocks only for unmanaged external boundaries or externally visible side effects.
-7. Write the smallest valuable test that protects meaningful behavior.
-8. Run the narrowest relevant `dotnet test` command first.
-9. If tests fail, fix the production code or the test according to the intended behavior.
-10. Report what was tested, which scope was chosen, and why mocks were or were not used.
+1. Decide whether a new or modified test is justified. A touched production
+   file does not by itself create a testing requirement.
+2. Inspect existing test projects, naming, fixtures, builders, assertions, and packages.
+3. Identify the observable behavior or explicit durable contract under test in domain terms.
+4. Classify the test: unit, integration, end-to-end, or architecture/API surface.
+5. Classify dependencies: in-memory, managed, unmanaged, or volatile.
+6. Prefer real in-memory collaborators owned by the codebase.
+7. Use mocks only for unmanaged external boundaries or externally visible side effects.
+8. Write the smallest valuable test that protects the identified requirement.
+9. Run the narrowest relevant `dotnet test` command first.
+10. If tests fail, fix the production code or the test according to the intended behavior.
+11. Report why the test exists, what scope was chosen, and why mocks were or were not used.
 
 ## Repository Awareness
 
@@ -49,6 +53,38 @@ Default stack, unless the repository already differs: xUnit, FluentAssertions, a
 - Do not redesign production code just to fit this skill.
 - Prefer focused local improvements over broad architecture changes.
 - If legacy design prevents ideal tests, add the best incremental test that improves confidence without making the design worse.
+
+## Test-existence decision
+
+Add or change a test when at least one of these is true:
+
+- observable behavior changes;
+- a reproduced bug needs a regression guard;
+- an explicit acceptance criterion is not covered;
+- a public API or architecture invariant is intentionally durable and the
+  repository already treats that surface as testable.
+
+Prefer existing validation when the change only:
+
+- deletes dead code or an unused overload;
+- migrates callers without changing behavior;
+- renames or moves implementation details;
+- changes comments, XML documentation, formatting, or generated output.
+
+For those structural changes, compilation, caller migration, focused existing
+tests, and diff inspection are normally the correct proof.
+
+### API and architecture tests
+
+The presence or absence of a method signature is structural evidence, not
+runtime behavior. Use reflection or API-surface assertions only when the
+surface itself is an explicit long-lived requirement and place the assertion in
+the repository's architecture/API test suite when one exists.
+
+Keep the asserted invariant exact. A test that rejects one overload must not
+claim that every remaining overload is typed. If a valid reintroduction or
+signature variation would fail the test without changing the required
+behavior, omit the test.
 
 ## Core Principles
 
@@ -250,8 +286,10 @@ If verification cannot run because of missing SDKs, unavailable services, or env
 
 ## Definition of Done
 
-- The test verifies observable behavior.
-- The scope is justified: unit, integration, or end-to-end.
+- The test's existence is justified by an observable requirement or explicit
+  durable contract.
+- The test verifies observable behavior or an exact explicit durable contract.
+- The scope is justified: unit, integration, end-to-end, or architecture/API surface.
 - Mocks are used only for valid boundary interactions.
 - Real in-memory collaborators are preferred where appropriate.
 - Volatile inputs are controlled.

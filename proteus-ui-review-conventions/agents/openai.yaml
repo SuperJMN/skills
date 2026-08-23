@@ -1,0 +1,4 @@
+interface:
+  display_name: "Proteus UI Review Conventions"
+  short_description: "Align Proteus UI changes with review standards"
+  default_prompt: "Use $proteus-ui-review-conventions to audit and minimally fix this branch against Proteus UI reviewer conventions."

@@ -1,100 +1,138 @@
 ---
 name: git-pushing
-description: Safely publish local git work by auditing the worktree, committing intended changes when needed, pushing the correct branch or repositories, and verifying remote alignment. Use when the user asks to push, commit and push, save work to GitHub/remote, publish changes, preserve work remotely, or says phrases like "empuja todo", "mete push", "push changes", "commit and push", or "push this".
+description: Safely publish local Git work by auditing scope, identity, remote ownership, staged changes, and final remote alignment. Use when the user asks to commit and push, push changes, save work to a remote, or otherwise publish the current work; a local-only commit, PR, merge, issue closure, or cleanup remains a separate action unless explicitly requested.
 ---
 
-# Git Publication Workflow
+# Git publication
 
-Use this skill when the user wants local git state preserved or published remotely. Treat publishing as a workflow with inspection and verification, not as a blind `git add . && git push`.
+Publish only the intended work to the intended branch and remote, then prove that
+the remote contains the exact local commit.
 
-## When to Use
+## Authorization boundary
 
-Activate when the user:
+- A request to push authorizes the commits needed to publish the intended local
+  changes, unless the user explicitly limits the request to already committed
+  work.
+- A local checkpoint or commit request stops locally unless publication is also
+  requested.
+- Opening or updating a PR, merging, closing an issue, deleting branches or
+  worktrees, and force-pushing require their own explicit authorization.
+- Preserve unrelated user work. "Push all/everything" includes all audited
+  changes in the repository; otherwise stage only paths that belong to the
+  requested work.
 
-- Explicitly asks to push changes ("push this", "commit and push")
-- Mentions saving work to remote ("save to github", "push to remote")
-- Asks to preserve current work remotely ("no quiero que se pierda")
-- Says Spanish variants such as "empuja todo", "mete push", "empuja los cambios"
-- Completes a feature and clearly wants it published
+## 1. Audit the publication target
 
-Do not activate for a local checkpoint request unless the user also asks to push. If the user asks to commit before continuing, make the local commit and stop there unless they mention a remote.
-
-## Core Rules
-
-- Inspect before staging: run `git status --short --branch` and review the diff shape before committing.
-- Respect repo-specific instructions, submodule boundaries, and publication order. If a submodule or sibling dependency changed, publish that repository first, then commit the parent pointer.
-- Preserve unrelated user work. If the dirty tree contains unrelated or surprising changes and the user did not say "all/everything", ask before including them.
-- If the tree is clean but commits are ahead of upstream, push directly. Do not force a new commit.
-- If the tree is clean and already aligned with upstream, verify and report that there was nothing to push.
-- Never use destructive cleanup commands as part of this workflow unless explicitly requested.
-- Always verify the final remote state.
-
-## Workflow
-
-1. Find the repo root and inspect state:
+Read repository instructions first. Resolve the repository root and inspect the
+branch, worktree, remotes, upstream, author identity, and change shape:
 
 ```bash
 git rev-parse --show-toplevel
 git status --short --branch
+git symbolic-ref --quiet --short HEAD
+git remote -v
+git config --get user.name
+git config --get user.email
 git diff --stat
+git diff --check
 ```
 
-2. If submodules are present, inspect them before committing the parent:
+Complete this step only when all of the following are known:
+
+- the branch is attached and is the branch the user intends to publish;
+- the remote URL and owner match the repository and any account/identity rules;
+- the configured commit identity is appropriate for that repository;
+- every dirty path is classified as intended, explicitly included by "all", or
+  unrelated and excluded.
+
+If identity, ownership, branch, or scope is ambiguous or mismatched, stop before
+staging or pushing and ask for the missing authority. Do not repair identity or
+remote configuration implicitly.
+
+If submodules are present, inspect their branches and dirty state. Publish an
+intentionally changed submodule or sibling repository before committing the
+parent pointer.
+
+## 2. Validate and stage the exact scope
+
+Run the repository's established validation appropriate to the change. A push
+request does not justify weakening or bypassing a known publication gate.
+
+Stage explicit paths by default:
 
 ```bash
-git submodule status --recursive
-git submodule foreach --recursive 'git status --short --branch'
+git add -- path/to/intended-file path/to/other-file
 ```
 
-3. Validate the change if validation is reasonable for the repo and the work just completed. Prefer the repo's established checks.
-
-4. Commit if there are intended local changes:
+Use repository-wide staging only after the audit established that every change
+is intended or the user explicitly requested all audited work:
 
 ```bash
 git add -A :/
-git commit -m "feat: describe the change"
 ```
 
-If the worktree is clean, skip the commit step.
+Review the actual index, not merely the pre-staging worktree:
 
-5. Push the branch:
+```bash
+git status --short
+git diff --cached --name-status
+git diff --cached --stat
+git diff --cached --check
+```
+
+Inspect the staged content path by path with bounded diff reads. Complete this
+step only when the staged diff contains every intended change, no unrelated
+change, and no credential or generated artifact that should remain local.
+
+## 3. Commit only when needed
+
+If intended local changes are staged, create a concise message describing the
+actual change:
+
+```bash
+git commit -m "<type>: <concise summary>"
+```
+
+If the worktree is clean and commits are already ahead of upstream, publish
+those commits without manufacturing another commit. If local and upstream state
+are already aligned, skip mutation and proceed to verification.
+
+## 4. Push the resolved branch and remote
+
+Use the configured upstream when it exists:
+
 
 ```bash
 git rev-parse --abbrev-ref --symbolic-full-name '@{u}'
 git push
 ```
 
-If there is no upstream yet:
+If no upstream exists, inspect the available remotes and select one only when
+repository instructions or the user's request makes it unambiguous:
 
 ```bash
-git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
+git push -u <remote> "$(git symbolic-ref --quiet --short HEAD)"
 ```
 
-6. Verify after pushing:
+If a push is rejected, fetch and inspect the divergence. Rebasing, merging,
+rewriting history, or force-pushing is a new decision; report the evidence and
+obtain authorization when the requested publication cannot be completed by a
+normal push.
+
+## 5. Prove remote alignment
+
+Resolve the actual upstream and verify both graph alignment and the remote ref:
 
 ```bash
 git status --short --branch
 git rev-list --left-right --count HEAD...@{u}
 git rev-parse HEAD
-git ls-remote origin "refs/heads/$(git rev-parse --abbrev-ref HEAD)"
+git rev-parse '@{u}'
+git ls-remote <upstream-remote> 'refs/heads/<upstream-branch>'
 ```
 
-The ahead/behind count should be `0 0` for a fully aligned branch. If the upstream remote or ref is not `origin/<branch>`, adjust the `git ls-remote` command to match the configured upstream.
-
-## Commit Messages
-
-Use a concise conventional commit message that describes the actual change:
-
-- `feat: add battle playback sync markers`
-- `fix: preserve appimage icon metadata`
-- `docs: update deployment handoff`
-- `chore: publish current work`
-
-Avoid generic messages like `chore: update code` unless the user only asked for a preservation commit and the diff is broad.
-
-## Failure Handling
-
-- If `origin` is missing, inspect remotes and either create/configure the remote if the user requested first publication, or ask which remote to use.
-- If the branch has no upstream, push with `-u origin <branch>`.
-- If the push is rejected, fetch and inspect divergence before rebasing or merging.
-- If verification fails, do not claim the work is published; report the exact blocker and current local/remote state.
+Publication is complete only when the ahead/behind count is `0 0`, local `HEAD`,
+the upstream tracking ref, and `ls-remote` all identify the same commit. Report
+the branch, remote, commit, validation performed, and any intentionally excluded
+local changes. If these checks disagree, report the blocker rather than claiming
+success.
