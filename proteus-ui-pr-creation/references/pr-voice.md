@@ -3,7 +3,15 @@
 The model to match. Distilled from the user's own PRs, e.g.
 [proteus-ui#121](https://github.com/QuantumSi/proteus-ui/pull/121).
 
-## Annotated exemplar (PR#121)
+## Annotated exemplar
+
+Adapted from PR#121. The warning about **ActivatorUtilities** was set apart
+under a heading in the original and reads as plain prose here, which is how to
+write it now.
+
+The exemplar is shown wrapped here so it stays readable in this file. The real
+body is not: each paragraph goes on one line, because GitHub renders a newline
+inside a paragraph as a line break.
 
 > **Adds the General tab.**
 >
@@ -17,11 +25,9 @@ The model to match. Distilled from the user's own PRs, e.g.
 >
 > Sections now build their content through `Section.For<T>`, so the factory no
 > longer takes an object, and the composition root owns the section list instead
-> of **SettingsViewModel**.
->
-> **IMPORTANT NOTE**: General is created with **ActivatorUtilities** so a hidden
-> tab's view model is released on deactivation rather than retained by the
-> container until shutdown (this would produce a memory leak).
+> of **SettingsViewModel**. General is created with **ActivatorUtilities**, so a
+> hidden tab's view model is released on deactivation instead of being kept by
+> the container until shutdown, which would leak memory.
 >
 > "Upgrade Software" and "Power Off" don't have command definitions yet, and the
 > values on screen are placeholders because the backend does not expose the
@@ -31,32 +37,49 @@ The model to match. Distilled from the user's own PRs, e.g.
 
 - **Opening line** — one terse standalone sentence naming the change
   ("Adds the General tab.").
-- **Body paragraphs** — plain prose, short paragraphs, no section headers.
-  Explains the *why* behind non-obvious choices (why a shared molecule, why the
-  composition root owns the list).
+- **Body paragraphs** — plain prose, short paragraphs, no section headers. Says
+  what the change does and why its shape is what it is (why a shared molecule,
+  why the composition root owns the list). Not how it is built.
 - **Bold** — type names, controls, workflow states (**SearchableComboBox**,
   **SettingsViewModel**).
 - **Backticks** — code symbols and API calls (`Section.For<T>`).
-- **`IMPORTANT NOTE`** — optional, and rare. Use it only when a real reviewer
-  trap exists, with the consequence spelled out (memory leak). Most PRs have
-  none, so leave it out rather than inventing one to fill the template. Never
-  more than one.
+- **Warnings** — when a choice can trap a reviewer, say it in the paragraph
+  where it belongs and name the consequence (memory leak). No label, no banner,
+  no dedicated block. A warning under a fixed heading turns into a template, and
+  a reviewer who sees the same heading on every PR stops reading it.
 - **Closing paragraph** — what is deliberately left out: placeholders, commands
   not wired, backend services missing. Scope stays explicit. Not a validation
   report: never end with tests passing, warning counts, or `dotnet format`
   results, since all of that is taken for granted.
 - **Register** — first person, matter-of-fact, screenshots for UI work.
+- **Length** — the exemplar above is the size to aim for. A summary someone
+  writes in three to five minutes, high level throughout. The reviewer reads the
+  code for the rest, so no method signatures, no call sequences, no tour of the
+  classes, no list of the options that were tried and dropped.
 
 ## Language
 
-Write like a fluent human at B2 level, not like a language model. Keep it plain
-and readable, and let the writing carry the small irregularities of real prose.
+Write like a fluent human at B2 level, not like a language model. Friendly but
+technical: explain the engineering plainly, without selling it and without
+padding. Keep it readable, and let the writing carry the small irregularities of
+real prose.
 
 - Short, direct sentences. Use a comma or a full stop where a longer sentence
   would drift. Split a long thought into two sentences.
+- American spelling throughout: "behavior", "initialize", "canceled",
+  "analyze", "recognize", "color", "center", "license" (noun and verb),
+  "defense", "toward", "while" rather than "whilst", "among" rather than
+  "amongst". The codebase and its APIs are American, so British spelling reads
+  as a different hand writing the same repository.
 - Everyday vocabulary. Prefer "take out" over "extract", "left inside" over
-  "stranded", "set again" over "re-initialised". Skip words that read as
+  "stranded", "set again" over "reinitialize". Skip words that read as
   polished machine output.
+- No idioms or figures of speech. The readers are an international team, and
+  "under the hood", "out of the box", "a can of worms" or "the elephant in the
+  room" cost a reader more than they say. Name the thing directly.
+- No numbers about the work itself: no test counts, no file or line counts, no
+  percentages, no warning tallies, no "X of Y cases covered". Numbers that
+  belong to the product (a timeout, a port, a version) are fine.
 - Punctuation that a person types on a keyboard: comma, full stop, parentheses.
   No em-dash (—), no semicolon, no en-dash between words. The workflow arrow `→`
   stays, since it is the repo's own state-machine convention.

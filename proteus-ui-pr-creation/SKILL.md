@@ -1,6 +1,6 @@
 ---
 name: proteus-ui-pr-creation
-description: Create or update a QuantumSi/proteus-ui pull request as jmnquantumsi, with a summary in jmnquantumsi's voice. Use when the user asks to open a proteus-ui PR, or to write or rewrite a proteus-ui PR summary in their style.
+description: Write as jmnquantumsi in QuantumSi/proteus-ui, and create or update pull requests on their behalf. Use for any proteus-ui text published in their name, including PR summaries, review replies and comment threads, and Jira comments and ticket descriptions on the JPUI project.
 ---
 
 # Proteus UI PR creation
@@ -82,16 +82,29 @@ register for any code comment you touch. Match the annotated model in
 [references/pr-voice.md](references/pr-voice.md): a terse opening sentence, plain
 prose in short paragraphs (no Markdown section headers), **bold** for types and
 workflow states, `backticks` for code symbols, and a closing paragraph naming
-what is deliberately left out. Add an `**IMPORTANT NOTE**:` line only when there
-is a real reviewer trap, at most one, and never as a fixed section of the
-template. First person, everyday words, keyboard punctuation only (no em-dash,
-no semicolon).
+what is deliberately left out. First person, everyday words, keyboard
+punctuation only (no em-dash, no semicolon).
 
-Do not close with a validation summary. Green build, passing tests, and a clean
-`dotnet format` are the assumed baseline for any PR, so restating them adds
-nothing.
+Friendly but technical. No idioms, since the readers are an international team.
+When a choice can trap a reviewer, say it in the paragraph where it belongs and
+name the consequence. Never under a label or a banner: a warning in a fixed
+block becomes a template and stops being read.
 
-Write the body to a temp file, then create — or, to restyle an existing PR, edit:
+Keep it high level and brief, the kind of summary someone writes in three to
+five minutes. Say what the change does and why the shape of it is what it is.
+Leave the implementation to the diff: no signatures, no call sequences, no
+walk-through of the classes involved. When a decision needs deep justification,
+that belongs in a review reply or the ticket, not in the summary.
+
+No numbers about the work itself: no test counts, no file or line counts, no
+percentages, no warning tallies. Do not close with a validation summary either.
+Green build, passing tests, and a clean `dotnet format` are the assumed baseline
+for any PR, so restating them adds nothing.
+
+Write the body to a temp file, then create — or, to restyle an existing PR, edit.
+Keep each paragraph on a single line in that file, with a blank line between
+paragraphs. GitHub turns every newline inside a paragraph into a visible line
+break, so a body wrapped at 80 columns renders with ragged breaks down the page.
 
 ```bash
 gh pr create --base main --head <branch> --title "JPUI-<NN> <title>" --body-file /tmp/pr-body.md
