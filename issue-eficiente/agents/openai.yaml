@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue eficiente"
+  short_description: "Completa issues con agentes y gasto proporcionado"
+  default_prompt: "Usa $issue-eficiente para implementar la issue indicada con validación completa y entrega local."
