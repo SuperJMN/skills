@@ -26,3 +26,7 @@
 /triage/
 /wayfinder/
 /writing-great-skills/
+
+# Codex system skills, refreshed automatically by the CLI (.codex-system-skills.marker).
+# Not vendored on purpose: this repository only tracks our own skills.
+/.system/
