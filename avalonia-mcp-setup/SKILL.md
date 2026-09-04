@@ -40,7 +40,7 @@ Activate when the user:
 ## Prerequisites
 
 - **.NET 10 SDK** — required to use `dnx` (the recommended way to run the tool without installing it). The Avalonia app itself supports net8.0 and net10.0.
-- An Avalonia 12.x application
+- An Avalonia application on the 11.3.x line. `Zafiro.Avalonia.Mcp.AppHost` 0.1.0 and later target the stable Avalonia 11 baseline (currently Avalonia 11.3.17). Only the older 0.0.x versions targeted Avalonia 12 previews.
 - An MCP-capable client (VS Code with GitHub Copilot, Claude Desktop, etc.)
 
 ## Step 1 — Add AppHost to the Avalonia App
@@ -272,7 +272,7 @@ And conditionally include the package in the `.csproj`:
 | New release not picked up yet | NuGet HTTP responses are briefly cached. Force an immediate check: `dnx --no-http-cache Zafiro.Avalonia.Mcp.Tool --yes` |
 | Want a specific version | Pin it explicitly: `dnx Zafiro.Avalonia.Mcp.Tool@1.2.3 --yes` |
 | Connection drops | The app may have exited. Discovery files from crashed apps may linger — delete stale `.json` files from the discovery directory. |
-| TypeLoadException | Version mismatch — `Zafiro.Avalonia.Mcp.AppHost` targets Avalonia 12.x. It is not compatible with Avalonia 11.x apps. |
+| TypeLoadException | Avalonia version mismatch between the app and the AppHost. `Zafiro.Avalonia.Mcp.AppHost` 0.1.0 and later build against Avalonia 11.3.17, while 0.0.x built against Avalonia 12 previews. On an Avalonia 11 app, use 0.1.0 or later. Check the package's own dependency with `curl -s https://api.nuget.org/v3-flatcontainer/zafiro.avalonia.mcp.apphost/<version>/zafiro.avalonia.mcp.apphost.nuspec` rather than assuming. |
 | Logging corrupts stdio | The MCP tool redirects all logging to stderr. If you see JSON parse errors, ensure nothing else writes to stdout. |
 
 ## Rules
