@@ -22,7 +22,10 @@ Coordina y conserva un único escritor responsable de integrar. Estas son prefer
 | Coordinación | `gpt-5.6-terra` | `medium` |
 | Implementación habitual | `gpt-5.6-terra` | `high` |
 | Comprobación mecánica, acotada y verificable | `gpt-5.6-luna` | `medium` |
-| Arquitectura difícil, diagnóstico estancado, revisión de riesgo | `gpt-5.6-sol` | `high` |
+| Diagnóstico o revisión de riesgo acotado | `gpt-5.6-sol` | `high` |
+| Arquitectura especialmente difícil, fallos sutiles del compilador, bloqueos persistentes | `gpt-6-astra` | `high` |
+
+Elige directamente Sol o Astra cuando la dificultad y el riesgo lo justifiquen; no exijas recorrer Luna → Terra → Sol → Astra. En RetroSharp, Astra puede aportar valor en semántica, análisis estático o corrección entre targets; una extracción física de proyectos no lo requiere por sí sola.
 
 La selección de subagentes forma parte de este flujo. Especifica `model`, `reasoning_effort` y `fork_turns: "none"` en la herramienta que los crea. Darle a un agente el nombre de un modelo en su prompt no configura ese modelo. Comprueba la respuesta o metadatos disponibles; distingue solicitado de confirmado.
 
@@ -45,7 +48,7 @@ Comprueba brevemente:
 
 Corrige lecturas redundantes y limita las salidas en cuanto aparezcan. Reutiliza informes terminados, notificaciones y esperas permitidas; evita `list_agents` periódico y verificaciones repetidas sin motivo.
 
-Tras dos intentos sobre el mismo bloqueo sin nueva evidencia, pide un diagnóstico acotado a Sol y devuelve su conclusión al escritor. Una compilación larga o una espera legítima no son estancamiento. Puede elegirse Sol de inicio si el riesgo concreto lo justifica.
+Tras dos intentos sobre el mismo bloqueo sin nueva evidencia, solicita un diagnóstico acotado al modelo adecuado: Sol para riesgo acotado; Astra para dificultad excepcional o un bloqueo que persiste tras la intervención de Sol. Envía la pregunta concreta, hipótesis descartadas y evidencia mínima, y devuelve la conclusión al escritor. Si resolverla exige implementación continuada, asigna esa parte acotada al especialista, serializando el relevo del escritor. Una compilación larga o una espera legítima no son estancamiento. Si el obstáculo es falta de información, permisos o capacidad del entorno, identifica esa carencia en lugar de seguir escalando modelos.
 
 Para contexto deteriorado, prepara un checkpoint corto con objetivo, estado del diff, decisiones, evidencia y pendientes antes de un relevo necesario. No reinicies agentes que siguen progresando para bajar un contador.
 
@@ -55,7 +58,7 @@ Para supervisión externa solicitada o interpretación de métricas, lee [superv
 
 ## Revisión y entrega
 
-Sobre un diff estable, encarga una única revisión independiente de solo lectura que cubra especificación y normas relevantes: Terra `high` en cambios rutinarios; Sol `high` ante riesgos de arquitectura, semántica, compatibilidad o comportamiento físico. Una segunda revisión necesita una laguna o riesgo concreto, no una plantilla. Evita sumar revisores de otras skills para volver a comprobar lo mismo; respeta cualquier revisión adicional exigida explícitamente por el usuario o repositorio.
+Sobre un diff estable, encarga una única revisión independiente de solo lectura que cubra especificación y normas relevantes. Selecciona el modelo según la tabla: Terra para cambios rutinarios, Sol para riesgo acotado y Astra para la dificultad excepcional identificada. Usar Astra no añade una segunda revisión por defecto. Una segunda revisión necesita una laguna o riesgo concreto, no una plantilla. Evita sumar revisores de otras skills para volver a comprobar lo mismo; respeta cualquier revisión adicional exigida explícitamente por el usuario o repositorio.
 
 Corrige hallazgos dentro del alcance y repite las validaciones afectadas y gates obligatorios según corresponda. Fallos ajenos se documentan con evidencia, sin absorberlos. Finaliza solo cuando los criterios estén satisfechos o exista un bloqueo real que requiera intervención externa; el ahorro no justifica una entrega incompleta.
 
