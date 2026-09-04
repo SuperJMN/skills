@@ -20,6 +20,7 @@ Coordina y conserva un único escritor responsable de integrar. Estas son prefer
 | Función | Modelo | Esfuerzo |
 | --- | --- | --- |
 | Coordinación | `gpt-5.6-terra` | `medium` |
+| Supervisor independiente del flujo | `gpt-5.6-terra` | `medium` |
 | Implementación habitual | `gpt-5.6-terra` | `high` |
 | Comprobación mecánica, acotada y verificable | `gpt-5.6-luna` | `medium` |
 | Diagnóstico o revisión de riesgo acotado | `gpt-5.6-sol` | `high` |
@@ -54,7 +55,15 @@ Para contexto deteriorado, prepara un checkpoint corto con objetivo, estado del 
 
 Si hay métricas accesibles, usa deltas entre checkpoints y separa entrada nueva, cacheada y salida. Los tokens acumulados no son el tamaño del contexto ni el coste facturado; la cuota de cuenta no mide una issue. Si faltan métricas, declara esa limitación y usa señales observables. No inventes presupuestos ni porcentajes de ahorro.
 
-Para supervisión externa solicitada o interpretación de métricas, lee [supervision.md](references/supervision.md). No actives tareas periódicas, exportación de telemetría ni cambios globales por invocar esta skill.
+### Supervisor independiente obligatorio en trabajos largos
+
+Activa un subagente supervisor de solo lectura cuando el plan tenga al menos tres entregables sustantivos de implementación, se acumulen unos treinta minutos de trabajo activo, o aparezcan dos intentos sin nueva evidencia sobre el mismo bloqueo. Preparación, revisión y ejecución de tests no cuentan como entregables adicionales; las esperas legítimas de procesos no activan por sí solas esta regla.
+
+Lee [supervision.md](references/supervision.md) y crea un único supervisor con Terra `medium` y `fork_turns: "none"`. Su función es comprobar que el trabajo aporta progreso, no implementar ni duplicar el diagnóstico técnico. Encárgale una primera comprobación al activarlo y seguimientos aproximadamente cada veinte minutos de actividad nueva, en el siguiente checkpoint disponible. Adelanta una revisión ante una nueva señal fuerte; agrupa avisos repetidos. El coordinador inicia estos encargos y debe registrar su recepción y resultado: crear un agente y dejarlo esperando no cumple la supervisión.
+
+Aplica las correcciones de proceso verificadas antes de encargar otro ciclo equivalente y comprueba su efecto en el siguiente checkpoint. Si coinciden atasco y escalado técnico, usa el dictamen del supervisor para formular un único encargo de diagnóstico, evitando dos investigaciones del mismo problema. No reinicies escritores que progresan ni interrumpas gates legítimos para cumplir una cadencia. Si no puedes crear o contactar al supervisor, informa de esa limitación y conserva los checkpoints propios sin afirmar que hubo revisión independiente.
+
+La supervisión no sustituye la revisión final de corrección. Al llegar al cierre, integra sus hallazgos pendientes en el paquete de revisión final y evita un seguimiento periódico adicional. Esta skill exige supervisión durante la ejecución; no instala un temporizador externo ni garantiza vigilancia cuando la sesión está detenida. No actives automatizaciones, exportación de telemetría ni cambios globales por invocarla.
 
 ## Revisión y entrega
 

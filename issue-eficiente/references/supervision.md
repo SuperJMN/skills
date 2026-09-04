@@ -1,6 +1,6 @@
 # Supervisión y métricas
 
-Lee esta referencia cuando el usuario pida un supervisor externo o sea necesario interpretar telemetría. La comprobación habitual ya pertenece al coordinador.
+Lee esta referencia al activar el supervisor independiente definido en `SKILL.md`, cuando el usuario pida un monitor externo o sea necesario interpretar telemetría. La comprobación habitual sigue perteneciendo al coordinador.
 
 ## Responsabilidades
 
@@ -11,6 +11,26 @@ Lee esta referencia cuando el usuario pida un supervisor externo o sea necesario
 | Supervisor independiente | Revisar una anomalía con contrato, diff y evidencia acotada | También consume tokens; no necesita leer toda la conversación |
 
 Una skill guía turnos activos. No ejecuta un proceso permanente ni garantiza revisiones con cadencia exacta cuando el agente está ocupado, detenido o sin herramientas accesibles.
+
+## Contrato del subagente supervisor
+
+Usa los umbrales y la cadencia de `SKILL.md`; no mantengas un segundo calendario. Reutiliza el mismo supervisor y envía solo cambios desde el checkpoint anterior. El supervisor devuelve el control después de cada encargo; no hace polling, no crea agentes ni espera indefinidamente por su cuenta.
+
+Paquete inicial y posteriores deltas, orientativamente hasta 800 palabras por encargo:
+
+- Objetivo, exclusiones y criterios de aceptación pendientes/completados.
+- Agentes activos con función y modelo efectivo, y trabajos que tienen encargados.
+- Progreso desde el checkpoint anterior, intentos fallidos y próxima acción propuesta.
+- Resumen de cambios y hasta tres evidencias breves con procedencia: un resultado de gate, una muestra de consultas repetidas, un diff concreto o un mensaje de agente. Incluye evidencia de ejecución, no solo la valoración del coordinador.
+- Deltas de consumo y contexto si están disponibles, con su unidad y alcance; en otro caso, «no disponible».
+
+El supervisor puede consultar fuentes concretas en modo lectura si el paquete no permite concluir; debe pedir o localizar la evidencia mínima que falta. No lee todo el historial ni reinventa el mapa del repositorio. Un criterio pendiente por sí solo no prueba atasco; una hipótesis descartada con evidencia sí es progreso.
+
+Respuesta breve, orientativamente hasta 150 palabras: `continuar`, `corregir` o `evidencia insuficiente`; señal y evidencia; una acción prioritaria; qué resultado permitiría comprobar su efecto. No inventes ahorro, umbrales monetarios ni precisión temporal.
+
+Ante `corregir`, el coordinador contrasta la evidencia y registra acción y resultado esperado, o una razón concreta para no aplicar la recomendación. Corrige repeticiones, alcance o reparto dentro de la autorización vigente antes del próximo ciclo equivalente. En el siguiente checkpoint comprueba si apareció evidencia nueva; si persiste el problema, cambia la hipótesis o escala el diagnóstico en lugar de repetir la misma corrección. Una alerta no autoriza cambios fuera del alcance, interrupciones de procesos, publicación ni descarte de trabajo.
+
+Ante `evidencia insuficiente`, aporta un dato concreto en la siguiente interacción útil; no conviertas el seguimiento en una investigación exhaustiva. Un fallo técnico que necesita especialista se deriva una sola vez según la tabla de modelos. La revisión final sigue comprobando la corrección del producto.
 
 ## Supervisión externa opcional
 
