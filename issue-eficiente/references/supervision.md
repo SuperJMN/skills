@@ -12,7 +12,7 @@ Lee esta referencia al activar el supervisor independiente definido en `SKILL.md
 
 Una skill guía turnos activos. No ejecuta un proceso permanente ni garantiza revisiones con cadencia exacta cuando el agente está ocupado, detenido o sin herramientas accesibles.
 
-La espera entre eventos es pasiva: el coordinador cede el turno con el Goal activo y reanuda ante una notificación o un cambio material. Las reglas operativas y el límite de esperas están en la sección `Espera pasiva` de `SKILL.md`; esta referencia no define una segunda cadencia.
+La espera entre eventos sigue la sección `Espera eficiente` de `SKILL.md`: el coordinador usa una espera que observe la fuente real y evita turnos de razonamiento sin estado nuevo. Esta referencia no define una segunda cadencia.
 
 ## Contrato del subagente supervisor
 

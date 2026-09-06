@@ -38,11 +38,16 @@ Cada encargo contiene objetivo, worktree/base, alcance de escritura, decisiones 
 
 ## Supervisión integrada
 
-### Espera pasiva
+### Espera eficiente
 
-Trata el trabajo delegado y los checks externos como estados de espera pasiva. Después de lanzar un agente o un gate, registra una sola vez qué evento falta y cuál será la siguiente acción. Si no queda trabajo síncrono útil, termina el turno y deja el Goal activo; terminar un turno no significa detener, pausar ni bloquear el objetivo.
+Trata el trabajo delegado y los checks externos como estados de espera orientada a eventos. Después de lanzar un agente o un gate, registra una sola vez qué evento falta y cuál será la siguiente acción; después usa el mecanismo menos costoso que pueda observar ese evento de verdad:
 
-Reanuda cuando llegue un mensaje del agente, termine un proceso, cambie el estado de CI, intervenga el usuario o una continuación del Goal aporte estado nuevo. No mantengas vivo el turno para vigilar: no encadenes `wait_agent` ni `list_agents`. Una única espera es adecuada solo cuando el evento es inminente y vas a consumir el resultado en ese mismo turno. Si termina sin novedad, cede el turno sin volver a consultar ni publicar un checkpoint vacío.
+- Para un agente delegado, usa una única espera larga y acotada, normalmente de cinco a diez minutos. Consume su notificación al llegar; no intercales `list_agents`, consultas de estado ni mensajes de «sigue activo».
+- Para CI u otro sistema externo, usa un watcher bloqueante del proveedor o del harness, con intervalo moderado, que termine al cambiar el estado. `wait_agent` no observa CI y no debe usarse para ello.
+- Si terminar el turno deja el Goal dormido hasta un evento, cede el turno con el Goal activo. Terminar un turno no significa detener, pausar ni bloquear el objetivo.
+- Si el Goal se reactiva inmediatamente sin estado nuevo, no produzcas finales ni checkpoints vacíos. Reanuda directamente una única espera larga sobre la fuente correcta. Un timeout sin novedad permite repetir esa espera en la siguiente continuación, sin releer inventarios ni emitir estado invariable.
+
+Al recibir una entrega, fallo, bloqueo o transición terminal, abandona la espera y ejecuta la siguiente acción. Evita bucles de polling dirigidos por el modelo: una herramienta puede permanecer bloqueada esperando, pero no debe provocar turnos periódicos de razonamiento sin información nueva.
 
 El coordinador supervisa en cada relevo, fallo, fin de gate y antes del cierre. En fases largas revisa también al recibir una entrega parcial o antes de iniciar el siguiente tramo sustantivo. Cada comprobación debe nacer de un evento o una decisión real, nunca de un reloj.
 
