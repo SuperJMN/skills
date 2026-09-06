@@ -38,7 +38,13 @@ Cada encargo contiene objetivo, worktree/base, alcance de escritura, decisiones 
 
 ## Supervisión integrada
 
-El coordinador supervisa en cada relevo, fallo, fin de gate y antes del cierre. En fases largas revisa también aproximadamente cada diez minutos de trabajo activo, aprovechando su siguiente intervención normal: no generes llamadas vacías para cumplir el reloj. Es una cadencia orientativa, no un temporizador ni un monitor en segundo plano.
+### Espera pasiva
+
+Trata el trabajo delegado y los checks externos como estados de espera pasiva. Después de lanzar un agente o un gate, registra una sola vez qué evento falta y cuál será la siguiente acción. Si no queda trabajo síncrono útil, termina el turno y deja el Goal activo; terminar un turno no significa detener, pausar ni bloquear el objetivo.
+
+Reanuda cuando llegue un mensaje del agente, termine un proceso, cambie el estado de CI, intervenga el usuario o una continuación del Goal aporte estado nuevo. No mantengas vivo el turno para vigilar: no encadenes `wait_agent` ni `list_agents`. Una única espera es adecuada solo cuando el evento es inminente y vas a consumir el resultado en ese mismo turno. Si termina sin novedad, cede el turno sin volver a consultar ni publicar un checkpoint vacío.
+
+El coordinador supervisa en cada relevo, fallo, fin de gate y antes del cierre. En fases largas revisa también al recibir una entrega parcial o antes de iniciar el siguiente tramo sustantivo. Cada comprobación debe nacer de un evento o una decisión real, nunca de un reloj.
 
 Comprueba brevemente:
 
@@ -57,9 +63,9 @@ Si hay métricas accesibles, usa deltas entre checkpoints y separa entrada nueva
 
 ### Supervisor independiente obligatorio en trabajos largos
 
-Activa un subagente supervisor de solo lectura cuando el plan tenga al menos tres entregables sustantivos de implementación, se acumulen unos treinta minutos de trabajo activo, o aparezcan dos intentos sin nueva evidencia sobre el mismo bloqueo. Preparación, revisión y ejecución de tests no cuentan como entregables adicionales; las esperas legítimas de procesos no activan por sí solas esta regla.
+Activa un subagente supervisor de solo lectura cuando el plan tenga al menos tres entregables sustantivos de implementación, se acumulen unos treinta minutos de trabajo activo, o aparezcan dos intentos sin nueva evidencia sobre el mismo bloqueo. Evalúa esos umbrales solo en una intervención motivada por un evento; no mantengas un turno vivo para alcanzarlos. Preparación, revisión y ejecución de tests no cuentan como entregables adicionales; el tiempo de espera de agentes, procesos o CI no es trabajo activo y no activa por sí solo esta regla.
 
-Lee [supervision.md](references/supervision.md) y crea un único supervisor con Terra `medium` y `fork_turns: "none"`. Su función es comprobar que el trabajo aporta progreso, no implementar ni duplicar el diagnóstico técnico. Encárgale una primera comprobación al activarlo y seguimientos aproximadamente cada veinte minutos de actividad nueva, en el siguiente checkpoint disponible. Adelanta una revisión ante una nueva señal fuerte; agrupa avisos repetidos. El coordinador inicia estos encargos y debe registrar su recepción y resultado: crear un agente y dejarlo esperando no cumple la supervisión.
+Lee [supervision.md](references/supervision.md) y crea un único supervisor con Terra `medium` y `fork_turns: "none"`. Su función es comprobar que el trabajo aporta progreso, no implementar ni duplicar el diagnóstico técnico. Encárgale una primera comprobación al activarlo y seguimientos solo después de un nuevo tramo sustantivo de actividad, en el siguiente checkpoint disponible. Adelanta una revisión ante una nueva señal fuerte; agrupa avisos repetidos. El coordinador inicia estos encargos y debe registrar su recepción y resultado: crear un agente y dejarlo esperando no cumple la supervisión.
 
 Aplica las correcciones de proceso verificadas antes de encargar otro ciclo equivalente y comprueba su efecto en el siguiente checkpoint. Si coinciden atasco y escalado técnico, usa el dictamen del supervisor para formular un único encargo de diagnóstico, evitando dos investigaciones del mismo problema. No reinicies escritores que progresan ni interrumpas gates legítimos para cumplir una cadencia. Si no puedes crear o contactar al supervisor, informa de esa limitación y conserva los checkpoints propios sin afirmar que hubo revisión independiente.
 
@@ -69,6 +75,6 @@ La supervisión no sustituye la revisión final de corrección. Al llegar al cie
 
 Sobre un diff estable, encarga una única revisión independiente de solo lectura que cubra especificación y normas relevantes. Selecciona el modelo según la tabla: Terra para cambios rutinarios, Sol para riesgo acotado y Astra para la dificultad excepcional identificada. Usar Astra no añade una segunda revisión por defecto. Una segunda revisión necesita una laguna o riesgo concreto, no una plantilla. Evita sumar revisores de otras skills para volver a comprobar lo mismo; respeta cualquier revisión adicional exigida explícitamente por el usuario o repositorio.
 
-Corrige hallazgos dentro del alcance y repite las validaciones afectadas y gates obligatorios según corresponda. Fallos ajenos se documentan con evidencia, sin absorberlos. Finaliza solo cuando los criterios estén satisfechos o exista un bloqueo real que requiera intervención externa; el ahorro no justifica una entrega incompleta.
+Corrige hallazgos dentro del alcance y repite las validaciones afectadas y gates obligatorios según corresponda. Fallos ajenos se documentan con evidencia, sin absorberlos. Declara la issue completada solo cuando los criterios estén satisfechos; si existe un bloqueo real que requiere intervención externa, entrega el checkpoint correspondiente. El ahorro no justifica una entrega incompleta.
 
 Entrega resultado, decisiones, validaciones y limitaciones reales. Añade una línea de modelos efectivos y escalados relevantes si hay evidencia; no un relato de cada llamada.
