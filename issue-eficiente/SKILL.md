@@ -1,6 +1,6 @@
 ---
 name: issue-eficiente
-description: Implementa issues con delegación proporcionada, selección de modelos por dificultad y supervisión del coste, contexto y alcance. Úsala al encargar una issue con subagentes y ahorro de tokens, o al pedir este flujo explícitamente; no para consultas de estado ni revisiones aisladas.
+description: Implementa issues con un único escritor, delegación proporcional y control verificable de coste y contexto. Úsala para ejecución con subagentes; no para consultas de estado ni revisiones aisladas.
 ---
 
 # Issue eficiente
@@ -34,7 +34,14 @@ Una skill no cambia automáticamente el modelo de la sesión principal. Si no pu
 
 El escritor hace la exploración necesaria y sigue con la implementación. Separa un preparador solo para una incertidumbre independiente cuyo resultado reduzca trabajo posterior. Paraleliza únicamente tareas independientes que vayas a utilizar; respeta la serialización de builds/tests del repositorio.
 
-Cada encargo contiene objetivo, worktree/base, alcance de escritura, decisiones relevantes, evidencia localizada y aceptación. El informe devuelve resultado, archivos/evidencia y pendientes. Reutiliza al escritor que progresa; no dupliques su trabajo ni sustituyas su contexto por rutina.
+Cada encargo contiene objetivo, worktree/base, alcance de escritura, decisiones relevantes, evidencia localizada y aceptación. El informe devuelve en hasta 800 palabras resultado, archivos/evidencia y pendientes. Reutiliza al escritor que progresa; no dupliques su trabajo ni sustituyas su contexto por rutina.
+
+### Bucle acotado
+
+- Acota la primera consulta o comando: usa el identificador o ruta más estrechos disponibles y, cuando la herramienta lo permita, limita su salida a 5.000 tokens. Amplía solo después de inspeccionar el primer resultado y demostrar qué evidencia falta.
+- Antes de iniciar un nuevo tramo sustantivo, comprueba las métricas disponibles. Un contexto que alcance el 75 % de su ventana o una sesión con 120 ejecuciones de comandos activa un cortacircuitos: termina únicamente la acción acotada en curso y, en la siguiente transición material, entrega un checkpoint de hasta 800 palabras y cierra esa sesión antes de abrir una continuación limpia. Mantén un solo escritor activo y no repitas la exploración ya documentada.
+- Si esas métricas no están disponibles, usa como señales equivalentes las salidas truncadas, la relectura del mismo inventario o la pérdida repetida de decisiones ya tomadas.
+- El cortacircuitos protege la continuidad; no reduce la aceptación, no declara éxito y no interrumpe una compilación, prueba o publicación que siga progresando.
 
 ## Supervisión integrada
 
@@ -42,7 +49,7 @@ Cada encargo contiene objetivo, worktree/base, alcance de escritura, decisiones 
 
 Trata el trabajo delegado y los checks externos como estados de espera orientada a eventos. Después de lanzar un agente o un gate, registra una sola vez qué evento falta y cuál será la siguiente acción; después usa el mecanismo menos costoso que pueda observar ese evento de verdad:
 
-- Para un agente delegado, usa una única espera larga y acotada, normalmente de cinco a diez minutos. Consume su notificación al llegar; no intercales `list_agents`, consultas de estado ni mensajes de «sigue activo».
+- Para un agente delegado, usa una sola `wait_agent(timeout_ms: 600000)` o la espera soportada más cercana a diez minutos. Consume su notificación al llegar. Un timeout no es una anomalía: en la siguiente continuación repite únicamente esa espera. Reserva `list_agents` para estados contradictorios o una entrega perdida, no para comprobar actividad.
 - Para CI u otro sistema externo, usa un watcher bloqueante del proveedor o del harness, con intervalo moderado, que termine al cambiar el estado. `wait_agent` no observa CI y no debe usarse para ello.
 - Si terminar el turno deja el Goal dormido hasta un evento, cede el turno con el Goal activo. Terminar un turno no significa detener, pausar ni bloquear el objetivo.
 - Si el Goal se reactiva inmediatamente sin estado nuevo, no produzcas finales ni checkpoints vacíos. Reanuda directamente una única espera larga sobre la fuente correcta. Un timeout sin novedad permite repetir esa espera en la siguiente continuación, sin releer inventarios ni emitir estado invariable.
@@ -62,7 +69,7 @@ Corrige lecturas redundantes y limita las salidas en cuanto aparezcan. Reutiliza
 
 Tras dos intentos sobre el mismo bloqueo sin nueva evidencia, solicita un diagnóstico acotado al modelo adecuado: Sol para riesgo acotado; Astra para dificultad excepcional o un bloqueo que persiste tras la intervención de Sol. Envía la pregunta concreta, hipótesis descartadas y evidencia mínima, y devuelve la conclusión al escritor. Si resolverla exige implementación continuada, asigna esa parte acotada al especialista, serializando el relevo del escritor. Una compilación larga o una espera legítima no son estancamiento. Si el obstáculo es falta de información, permisos o capacidad del entorno, identifica esa carencia en lugar de seguir escalando modelos.
 
-Para contexto deteriorado, prepara un checkpoint corto con objetivo, estado del diff, decisiones, evidencia y pendientes antes de un relevo necesario. No reinicies agentes que siguen progresando para bajar un contador.
+Aplica el cortacircuitos de contexto en la siguiente transición material. Conserva el proceso o gate que progresa y realiza el relevo antes de comenzar otro tramo sustantivo.
 
 Si hay métricas accesibles, usa deltas entre checkpoints y separa entrada nueva, cacheada y salida. Los tokens acumulados no son el tamaño del contexto ni el coste facturado; la cuota de cuenta no mide una issue. Si faltan métricas, declara esa limitación y usa señales observables. No inventes presupuestos ni porcentajes de ahorro.
 
@@ -78,8 +85,10 @@ La supervisión no sustituye la revisión final de corrección. Al llegar al cie
 
 ## Revisión y entrega
 
-Sobre un diff estable, encarga una única revisión independiente de solo lectura que cubra especificación y normas relevantes. Selecciona el modelo según la tabla: Terra para cambios rutinarios, Sol para riesgo acotado y Astra para la dificultad excepcional identificada. Usar Astra no añade una segunda revisión por defecto. Una segunda revisión necesita una laguna o riesgo concreto, no una plantilla. Evita sumar revisores de otras skills para volver a comprobar lo mismo; respeta cualquier revisión adicional exigida explícitamente por el usuario o repositorio.
+Sobre un diff estable, encarga una única sesión independiente de solo lectura que cubra por sí misma especificación y normas relevantes. Selecciona el modelo según la tabla: Terra para cambios rutinarios, Sol para riesgo acotado y Astra para la dificultad excepcional identificada. Su encargo exige resolver ambos ejes dentro de esa sesión, sin crear descendientes ni invocar un flujo de revisión que los cree. Una revisión adicional solo procede si el usuario o el repositorio la exige, o si existe una laguna concreta que la primera no puede cerrar.
 
-Corrige hallazgos dentro del alcance y repite las validaciones afectadas y gates obligatorios según corresponda. Fallos ajenos se documentan con evidencia, sin absorberlos. Declara la issue completada solo cuando los criterios estén satisfechos; si existe un bloqueo real que requiere intervención externa, entrega el checkpoint correspondiente. El ahorro no justifica una entrega incompleta.
+Devuelve los hallazgos al mismo escritor y dirige las comprobaciones posteriores al mismo revisor mediante `followup_task` o el mecanismo equivalente; limita cada recheck a los hallazgos abiertos. Durante las correcciones ejecuta validaciones focales. Ejecuta el gate completo obligatorio una vez sobre el candidato estable y repítelo solo si falla y el código cambia para corregirlo, cambia el head revisado o el repositorio lo exige explícitamente.
+
+Fallos ajenos se documentan con evidencia, sin absorberlos. Declara la issue completada solo cuando los criterios estén satisfechos; si existe un bloqueo real que requiere intervención externa, entrega el checkpoint correspondiente. El ahorro no justifica una entrega incompleta.
 
 Entrega resultado, decisiones, validaciones y limitaciones reales. Añade una línea de modelos efectivos y escalados relevantes si hay evidencia; no un relato de cada llamada.
