@@ -19,14 +19,15 @@ Coordina y conserva un único escritor responsable de integrar. Estas son prefer
 
 | Función | Modelo | Esfuerzo |
 | --- | --- | --- |
-| Coordinación | `gpt-5.6-terra` | `medium` |
-| Supervisor independiente del flujo | `gpt-5.6-terra` | `medium` |
-| Implementación habitual | `gpt-5.6-terra` | `high` |
-| Comprobación mecánica, acotada y verificable | `gpt-5.6-luna` | `medium` |
-| Diagnóstico o revisión de riesgo acotado | `gpt-5.6-sol` | `high` |
+| Coordinación | `gpt-6-sol` | `medium` |
+| Supervisor independiente del flujo | `gpt-6-sol` | `medium` |
+| Implementación habitual y revisión rutinaria | `gpt-6-sol` | `medium` |
+| Comprobación mecánica simple y acotada | `gpt-6-luna` | `low` |
+| Cambio mecánico coordinado desde un brief claro | `gpt-6-luna` | `medium` |
+| Implementación compleja, diagnóstico o revisión de riesgo | `gpt-6-sol` | `high` |
 | Arquitectura especialmente difícil, fallos sutiles del compilador, bloqueos persistentes | `gpt-6-astra` | `high` |
 
-Elige directamente Sol o Astra cuando la dificultad y el riesgo lo justifiquen; no exijas recorrer Luna → Terra → Sol → Astra. En RetroSharp, Astra puede aportar valor en semántica, análisis estático o corrección entre targets; una extracción física de proyectos no lo requiere por sí sola.
+El esfuerzo de la tabla es un punto de partida: ajústalo al alcance y riesgo de cada encargo, incluido el coordinador. Usa `high` para razonamiento complejo o comprobaciones delicadas, no por rutina; reserva Luna para tareas cuya aceptación sea mecánicamente verificable. Elige directamente Sol o Astra cuando la dificultad y el riesgo lo justifiquen; no exijas recorrer Luna → Sol → Astra. En RetroSharp, Astra puede aportar valor en semántica, análisis estático o corrección entre targets; una extracción física de proyectos no lo requiere por sí sola.
 
 La selección de subagentes forma parte de este flujo. Especifica `model`, `reasoning_effort` y `fork_turns: "none"` en la herramienta que los crea. Darle a un agente el nombre de un modelo en su prompt no configura ese modelo. Comprueba la respuesta o metadatos disponibles; distingue solicitado de confirmado.
 
@@ -77,7 +78,7 @@ Si hay métricas accesibles, usa deltas entre checkpoints y separa entrada nueva
 
 Activa un subagente supervisor de solo lectura cuando el plan tenga al menos tres entregables sustantivos de implementación, se acumulen unos treinta minutos de trabajo activo, o aparezcan dos intentos sin nueva evidencia sobre el mismo bloqueo. Evalúa esos umbrales solo en una intervención motivada por un evento; no mantengas un turno vivo para alcanzarlos. Preparación, revisión y ejecución de tests no cuentan como entregables adicionales; el tiempo de espera de agentes, procesos o CI no es trabajo activo y no activa por sí solo esta regla.
 
-Lee [supervision.md](references/supervision.md) y crea un único supervisor con Terra `medium` y `fork_turns: "none"`. Su función es comprobar que el trabajo aporta progreso, no implementar ni duplicar el diagnóstico técnico. Encárgale una primera comprobación al activarlo y seguimientos solo después de un nuevo tramo sustantivo de actividad, en el siguiente checkpoint disponible. Adelanta una revisión ante una nueva señal fuerte; agrupa avisos repetidos. El coordinador inicia estos encargos y debe registrar su recepción y resultado: crear un agente y dejarlo esperando no cumple la supervisión.
+Lee [supervision.md](references/supervision.md) y crea un único supervisor con Sol `medium` y `fork_turns: "none"`. Su función es comprobar que el trabajo aporta progreso, no implementar ni duplicar el diagnóstico técnico. Encárgale una primera comprobación al activarlo y seguimientos solo después de un nuevo tramo sustantivo de actividad, en el siguiente checkpoint disponible. Adelanta una revisión ante una nueva señal fuerte; agrupa avisos repetidos. El coordinador inicia estos encargos y debe registrar su recepción y resultado: crear un agente y dejarlo esperando no cumple la supervisión.
 
 Aplica las correcciones de proceso verificadas antes de encargar otro ciclo equivalente y comprueba su efecto en el siguiente checkpoint. Si coinciden atasco y escalado técnico, usa el dictamen del supervisor para formular un único encargo de diagnóstico, evitando dos investigaciones del mismo problema. No reinicies escritores que progresan ni interrumpas gates legítimos para cumplir una cadencia. Si no puedes crear o contactar al supervisor, informa de esa limitación y conserva los checkpoints propios sin afirmar que hubo revisión independiente.
 
@@ -85,7 +86,7 @@ La supervisión no sustituye la revisión final de corrección. Al llegar al cie
 
 ## Revisión y entrega
 
-Sobre un diff estable, encarga una única sesión independiente de solo lectura que cubra por sí misma especificación y normas relevantes. Selecciona el modelo según la tabla: Terra para cambios rutinarios, Sol para riesgo acotado y Astra para la dificultad excepcional identificada. Su encargo exige resolver ambos ejes dentro de esa sesión, sin crear descendientes ni invocar un flujo de revisión que los cree. Una revisión adicional solo procede si el usuario o el repositorio la exige, o si existe una laguna concreta que la primera no puede cerrar.
+Sobre un diff estable, encarga una única sesión independiente de solo lectura que cubra por sí misma especificación y normas relevantes. Selecciona el modelo y esfuerzo según la tabla: Sol `medium` para cambios rutinarios, Sol `high` para riesgo acotado y Astra `high` para la dificultad excepcional identificada. Su encargo exige resolver ambos ejes dentro de esa sesión, sin crear descendientes ni invocar un flujo de revisión que los cree. Una revisión adicional solo procede si el usuario o el repositorio la exige, o si existe una laguna concreta que la primera no puede cerrar.
 
 Devuelve los hallazgos al mismo escritor y dirige las comprobaciones posteriores al mismo revisor mediante `followup_task` o el mecanismo equivalente; limita cada recheck a los hallazgos abiertos. Durante las correcciones ejecuta validaciones focales. Ejecuta el gate completo obligatorio una vez sobre el candidato estable y repítelo solo si falla y el código cambia para corregirlo, cambia el head revisado o el repositorio lo exige explícitamente.
 
