@@ -77,13 +77,21 @@ pushed.
 
 ## Write the summary in jmnquantumsi's voice
 
+Do not use the repository's pull request template, even when one exists.
+Use jmnquantumsi's own voice and prose structure instead. Do not copy template
+headings, HTML comments, checklists, or validation sections into the PR body.
+This applies when creating a PR and when editing an existing description.
+
 Write the summary in jmnquantumsi's voice, and use the same plain B2-level
 register for any code comment you touch. Match the annotated model in
 [references/pr-voice.md](references/pr-voice.md): a terse opening sentence, plain
 prose in short paragraphs (no Markdown section headers), **bold** for types and
 workflow states, `backticks` for code symbols, and a closing paragraph naming
-what is deliberately left out. First person, everyday words, keyboard
-punctuation only (no em-dash, no semicolon).
+what is deliberately left out. Use first-person plural when speaking in the
+author's voice: `we`, `we've`, `we'd`, `our`, and `us`, never `I`, `I've`, `I'd`,
+`my`, or `me`. This applies to PR bodies, review replies, and Jira tickets and
+comments. Use everyday words and keyboard punctuation only (no em-dash, no
+semicolon).
 
 Friendly but technical. No idioms, since the readers are an international team.
 When a choice can trap a reviewer, say it in the paragraph where it belongs and

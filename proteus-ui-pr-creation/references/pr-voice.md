@@ -51,7 +51,7 @@ inside a paragraph as a line break.
   not wired, backend services missing. Scope stays explicit. Not a validation
   report: never end with tests passing, warning counts, or `dotnet format`
   results, since all of that is taken for granted.
-- **Register** — first person, matter-of-fact, screenshots for UI work.
+- **Register** — first-person plural, matter-of-fact, screenshots for UI work.
 - **Length** — the exemplar above is the size to aim for. A summary someone
   writes in three to five minutes, high level throughout. The reviewer reads the
   code for the rest, so no method signatures, no call sequences, no tour of the
@@ -64,6 +64,11 @@ technical: explain the engineering plainly, without selling it and without
 padding. Keep it readable, and let the writing carry the small irregularities of
 real prose.
 
+- Use first-person plural when speaking as the author: "We've replaced", not
+  "I've replaced", and "We'd merge", not "I'd merge". Use "we", "our", and "us",
+  not "I", "my", or "me". Neutral sentences such as "The converter skips..."
+  are still fine. Don't force every sentence to start with "we" or rewrite
+  quoted text from other people.
 - Short, direct sentences. Use a comma or a full stop where a longer sentence
   would drift. Split a long thought into two sentences.
 - American spelling throughout: "behavior", "initialize", "canceled",
